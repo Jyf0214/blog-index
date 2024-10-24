@@ -39,8 +39,8 @@ const WEBSITE_SORTS: WebsiteSort[] = [
     title: "友情链接",
     sites: [
       {
-        title: "EsunR Blog",
-        description: "EsunR 的博客",
+        title: "Jyf0214 Blog",
+        description: "Jyf0214 的博客",
         url: "https://www.esunr.xyz",
         icon: "https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/logo.jpg",
       },
@@ -55,7 +55,7 @@ const GLOBAL_CONFIG = {
   /**
    * 博客名称
    */
-  BLOG_NAME: "EsunR-Blog",
+  BLOG_NAME: "Jyf0214-Blog",
   /**
    * 个人博客链接
    */
@@ -67,7 +67,7 @@ const GLOBAL_CONFIG = {
   /**
    * 个人 Github 链接
    */
-  GITHUB_URL: "https://github.com/EsunR",
+  GITHUB_URL: "https://github.com/Jyf0214",
   /**
    * 背景图片地址
    */
@@ -75,7 +75,7 @@ const GLOBAL_CONFIG = {
   /**
    * ICP 备案号，留空不显示
    */
-  ICP: "京ICP证000001号",
+  ICP: "",
   ICP_URL: "https://beian.miit.gov.cn/",
   FOOTER_INFO: true,
   /**
