@@ -18,6 +18,14 @@ jobs:
       with:
         node-version: '18'  # 项目使用的 Node.js 版本，可根据需要调整
 
+    - name: Cache Node modules
+      uses: actions/cache@v3
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
     - name: Install dependencies
       run: yarn install  # 使用 Yarn 安装依赖
 
@@ -29,4 +37,4 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./dist  # Vite 默认构建输出目录
-        CNAME: jyf20100214.giize.com
+        cname: jyf20100214.giize.com
