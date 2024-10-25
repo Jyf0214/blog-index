@@ -16,7 +16,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '16'  # 项目使用的 Node.js 版本，可根据需要调整
+        node-version: '18'  # 项目使用的 Node.js 版本，可根据需要调整
 
     - name: Install dependencies
       run: yarn install  # 使用 Yarn 安装依赖
