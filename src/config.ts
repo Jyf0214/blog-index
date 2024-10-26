@@ -6,7 +6,7 @@ const WEBSITE_SORTS: WebsiteSort[] = [
       {
         title: "纯图片网站索引",
         url: "https://elysia.freeddns.org/",
-        icon: "https://github.com/Jyf0214-2.png",
+        icon: "https://avatars.githubusercontent.com/u/184641585?v=4",
         color: "#0171CD",
       },
       {
