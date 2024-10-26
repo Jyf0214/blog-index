@@ -17,7 +17,7 @@ const WEBSITE_SORTS: WebsiteSort[] = [
       },
       {
         title: "Lolicon APP",
-        description: "",
+        description: "https://raw.githubusercontent.com/Jyf0214/jyf0214.cloud-ip.biz/refs/heads/main/favicon.ico",
         url: "https://jyf0214.giize.com/",
         icon: "",
       },
