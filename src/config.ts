@@ -92,9 +92,9 @@ const GLOBAL_CONFIG = {
    * 网站 Title Keywords Description 的配置，用于 SEO
    */
   TKD: {
-    title: "My Blog Index",
-    keywords: "Blog, Index, Index Page",
-    description: "This is my personal blog index page.",
+    title: "Jyf0214's Blog Index",
+    keywords: "Blog, Index, Index Page, Jyf0214",
+    description: "This is Jyf0214's personal blog index page.",
   },
 };
 
