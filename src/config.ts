@@ -21,6 +21,24 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         url: "https://jyf0214.giize.com/",
         icon: "/assets/Lolicon-APP.svg",
       },
+      {
+        title: "ChatGPT-Web-Proxy",
+        description: "",
+        url: "https://jyf0214.acfun.pw/",
+        icon: "/assets/Lolicon-APP.svg",
+      },
+      {
+        title: "Lolicon APP",
+        description: "",
+        url: "https://jyf0214.giize.com/",
+        icon: "/assets/Lolicon-APP.svg",
+      },
+      {
+        title: "Lolicon APP",
+        description: "",
+        url: "https://jyf0214.giize.com/",
+        icon: "/assets/Lolicon-APP.svg",
+      },
     ],
   },
   {
