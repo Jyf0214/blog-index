@@ -1,7 +1,7 @@
 /** Website 分类配置 */
 const WEBSITE_SORTS: WebsiteSort[] = [
   {
-    title: "示例分类1",
+    title: "工具",
     sites: [
       {
         title: "主标题",
@@ -22,18 +22,6 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         icon: "",
       },
     ],
-  },
-  {
-    title: "示例分类2",
-  },
-  {
-    title: "示例分类3",
-  },
-  {
-    title: "示例分类4",
-  },
-  {
-    title: "示例分类5",
   },
   {
     title: "友情链接",
