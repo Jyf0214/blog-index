@@ -28,9 +28,9 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         icon: "/assets/Chatgpt-Web-Proxy.svg",
       },
       {
-        title: "Lolicon APP",
+        title: "音乐播放器",
         description: "",
-        url: "https://jyf0214.giize.com/",
+        url: "https://jyf0214.camdvr.org/",
         icon: "/assets/Lolicon-APP.svg",
       },
       {
