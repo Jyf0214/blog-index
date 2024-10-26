@@ -25,7 +25,7 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         title: "ChatGPT-Web-Proxy",
         description: "",
         url: "https://jyf0214.acfun.pw/",
-        icon: "/assets/Lolicon-APP.svg",
+        icon: "/assets/Chatgpt-Web-Proxy.svg",
       },
       {
         title: "Lolicon APP",
