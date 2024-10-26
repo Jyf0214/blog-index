@@ -32,6 +32,12 @@ jobs:
     - name: Build project
       run: yarn build  # Vite 默认构建命令
 
+    - name: Create SVG file with environment variable text
+      run: |
+        echo '{{ secrets.LOLICON_APP }}' > assets/chat.svg
+      env:
+        LOLICON_APP: ${{ secrets.LOLICON_APP }}  # 从环境变量中获取文本
+
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:
