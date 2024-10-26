@@ -10,9 +10,9 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         color: "#0171CD",
       },
       {
-        title: "主标题",
-        description: "网站描述",
-        url: "http://www.your-web-page.com/",
+        title: "ChatGPT-Next-Chat",
+        description: "",
+        url: "https://bronya.giize.com/",
         icon: "",
       },
       {
