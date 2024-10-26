@@ -41,7 +41,7 @@ const WEBSITE_SORTS: WebsiteSort[] = [
       {
         title: "Jyf0214 Blog",
         description: "Jyf0214 的博客",
-        url: "https://www.esunr.xyz",
+        url: "https://elysia.camdvr.org",
         icon: "https://github.com/Jyf0214.png",
       },
     ],
