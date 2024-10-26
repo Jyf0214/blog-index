@@ -32,11 +32,10 @@ jobs:
     - name: Build project
       run: yarn build  # Vite 默认构建命令
 
-    - name: Create SVG file with environment variable text
+    - name: Copy SVG files to output directory
       run: |
-        echo '{{ secrets.LOLICON_APP }}' > assets/chat.svg
-      env:
-        LOLICON_APP: ${{ secrets.LOLICON_APP }}  # 从环境变量中获取文本
+        mkdir -p dist/assets  # 确保 dist/assets 目录存在
+        cp -r src/assets/*.svg dist/assets/  # 复制所有 SVG 文件到构建输出目录
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
