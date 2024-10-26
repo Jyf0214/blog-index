@@ -13,7 +13,7 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         title: "ChatGPT-Next-Chat",
         description: "",
         url: "https://bronya.giize.com/",
-        icon: "",
+        icon: "https://raw.githubusercontent.com/Jyf0214/jekyll-theme-chirpy/refs/heads/master/openai-logo-DmWoKcI3%20(1).svg",
       },
       {
         title: "Lolicon APP",
