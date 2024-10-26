@@ -16,9 +16,9 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         icon: "",
       },
       {
-        title: "主标题",
-        description: "网站描述",
-        url: "http://www.your-web-page.com/",
+        title: "Lolicon APP",
+        description: "",
+        url: "https://jyf0214.giize.com/",
         icon: "",
       },
     ],
