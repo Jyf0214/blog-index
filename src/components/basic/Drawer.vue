@@ -64,8 +64,8 @@ function onDrawerClick(e: Event) {
         </div>
         <div class="drawer__footer">
           <sketch-outlined class="footer-icon" />
-          <a href="https://github.com/EsunR/Blog-Index" target="_blank">
-            Driven by <b>EsunR/Blog-Index</b>
+          <a href="https://github.com/Jyf0214" target="_blank">
+            Driven by <b>Github Page</b>
           </a>
         </div>
       </div>
