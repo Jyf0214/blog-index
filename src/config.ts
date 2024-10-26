@@ -31,7 +31,7 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         title: "音乐播放器",
         description: "",
         url: "https://jyf0214.camdvr.org/",
-        icon: "/assets/Lolicon-APP.svg",
+        icon: "/assets/Music.svg",
       },
       {
         title: "Lolicon APP",
