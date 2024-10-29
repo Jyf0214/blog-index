@@ -34,9 +34,9 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         icon: "/assets/Music.svg",
       },
       {
-        title: "Lolicon APP",
+        title: "可露希尔小卖部",
         description: "",
-        url: "https://jyf0214.giize.com/",
+        url: "https://closure.ltsc.vip/",
         icon: "/assets/Lolicon-APP.svg",
       },
     ],
