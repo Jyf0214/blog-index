@@ -37,7 +37,7 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         title: "可露希尔小卖部",
         description: "",
         url: "https://closure.ltsc.vip/",
-        icon: "/assets/Lolicon-APP.svg",
+        icon: "/assets/Closure.svg",
       },
     ],
   },
