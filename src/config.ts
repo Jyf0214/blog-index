@@ -77,7 +77,7 @@ const GLOBAL_CONFIG = {
   /**
    * 背景图片地址
    */
-  BACKGROUND_IMG_URL: "https://bing.img.run/rand.php",
+  BACKGROUND_IMG_URL: "http://api.mmp.cc/api/bing?size=UHD&type=jpg",
   /**
    * ICP 备案号，留空不显示
    */
