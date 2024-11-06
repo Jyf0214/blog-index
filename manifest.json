@@ -1,0 +1,10 @@
+{
+  "name": "Jyf0214's Blog index",
+  "short_name": "Blog index",
+  "theme_color": "rgba(17,46,69,0.75)",
+  "background_color": "rgba(17,46,69,0.75)",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/"
+}
