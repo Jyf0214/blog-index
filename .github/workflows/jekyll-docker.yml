@@ -36,6 +36,8 @@ jobs:
       run: |
         mkdir -p dist/assets  # 确保 dist/assets 目录存在
         cp -r src/assets/*.{svg,jpg,png,gif} dist/assets/
+        cp -r src/assets/*.json dist/assets/
+
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
