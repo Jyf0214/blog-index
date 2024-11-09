@@ -15,27 +15,41 @@
         position: fixed;
         bottom: 20px;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translateX(-50%) translateY(100px);
         padding: 15px;
-        background: #fff;
-        border: 1px solid #ccc;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        background: #ffffff;
+        border: 1px solid #cccccc;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         text-align: center;
+        transition: all 0.3s ease-out;
+        opacity: 0;
+      }
+      #installPrompt.visible {
+        display: block;
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
       }
       #installPrompt button {
         margin-top: 10px;
         padding: 8px 15px;
         background-color: #007bff;
-        color: #fff;
+        color: #ffffff;
         border: none;
+        border-radius: 5px;
         cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+      }
+      #installPrompt button:active {
+        background-color: #0056b3;
+        transform: scale(0.95);
       }
     </style>
   </head>
   <body>
     <div id="app"></div>
     
-    <!-- 弹出框 -->
+    <!-- 提示框 -->
     <div id="installPrompt">
       <p>将本站添加到主屏幕，以获得更好的体验。</p>
       <button id="installButton">添加到主屏幕</button>
@@ -43,47 +57,41 @@
 
     <script type="module" src="/src/main.ts"></script>
     <script>
-      // 注册 Service Worker
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker
-            .register('/service-worker.js')
-            .then((registration) => {
-              console.log('Service Worker 注册成功:', registration.scope);
-            })
-            .catch((error) => {
-              console.log('Service Worker 注册失败:', error);
-            });
-        });
-      }
-
-      // 主屏幕提示
-      let deferredPrompt;
+      // 检查是否已经安装或提示过
       const installPrompt = document.getElementById('installPrompt');
       const installButton = document.getElementById('installButton');
+      let deferredPrompt;
 
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        // 显示提示框
-        installPrompt.style.display = 'block';
-      });
+      // 检查是否已经添加到桌面，或在PWA环境中运行
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+      const alreadyPrompted = localStorage.getItem('pwaAdded') === 'true';
 
-      installButton.addEventListener('click', () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-              console.log('用户接受了添加到主屏幕的提示');
-            } else {
-              console.log('用户拒绝了添加到主屏幕的提示');
-            }
-            // 隐藏提示框
-            installPrompt.style.display = 'none';
-            deferredPrompt = null;
-          });
-        }
-      });
+      if (!isPWA && !alreadyPrompted) {
+        // 捕获 beforeinstallprompt 事件
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+          // 显示提示框
+          installPrompt.classList.add('visible');
+        });
+
+        // 处理“添加到主屏幕”按钮的点击事件
+        installButton.addEventListener('click', () => {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+              if (choiceResult.outcome === 'accepted') {
+                console.log('用户接受了添加到主屏幕的提示');
+                localStorage.setItem('pwaAdded', 'true'); // 设置标记避免重复弹出
+              } else {
+                console.log('用户拒绝了添加到主屏幕的提示');
+              }
+              installPrompt.classList.remove('visible');
+              deferredPrompt = null;
+            });
+          }
+        });
+      }
     </script>
   </body>
 </html>
