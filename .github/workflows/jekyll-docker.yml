@@ -32,7 +32,7 @@ jobs:
     - name: Build project
       run: yarn build  # Vite 默认构建命令
 
-    - name: Copy SVG files to output directory
+    - name: Copy Image files to output directory
       run: |
         mkdir -p dist/assets 
         # 移动并删除原始文件
