@@ -1,6 +1,6 @@
 {
-  "name": "Jyf0214's Blog",
-  "short_name": "Blog",
+  "name": "Jyf0214's Blog Index",
+  "short_name": "Jyf0214 Blog Index",
   "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
