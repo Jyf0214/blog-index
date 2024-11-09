@@ -9,89 +9,111 @@
     <title>Jyf0214's Blog Index</title>
     
     <style>
-      /* 弹出框样式 */
-      #installPrompt {
-        display: none;
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%) translateY(100px);
-        padding: 15px;
-        background: #ffffff;
-        border: 1px solid #cccccc;
-        border-radius: 10px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        text-align: center;
-        transition: all 0.3s ease-out;
-        opacity: 0;
-      }
-      #installPrompt.visible {
-        display: block;
-        transform: translateX(-50%) translateY(0);
-        opacity: 1;
-      }
-      #installPrompt button {
-        margin-top: 10px;
-        padding: 8px 15px;
-        background-color: #007bff;
-        color: #ffffff;
-        border: none;
-        border-radius: 5px;
+      /* 样式: 菜单按钮和侧边菜单 */
+      .menu-button {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 24px;
         cursor: pointer;
-        transition: background-color 0.2s ease, transform 0.1s ease;
+        z-index: 1000;
       }
-      #installPrompt button:active {
-        background-color: #0056b3;
-        transform: scale(0.95);
+      .side-menu {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 250px;
+        height: 100%;
+        background: #ffffff;
+        box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 999;
+        padding-top: 60px;
+      }
+      .side-menu.visible {
+        transform: translateX(0);
+      }
+      .menu-content {
+        padding: 15px;
+        font-size: 18px;
+        color: #333333;
+      }
+      .menu-content p {
+        margin: 15px 0;
+      }
+      .github-info {
+        position: absolute;
+        bottom: 20px;
+        width: 100%;
+        text-align: center;
+        font-size: 14px;
+        color: #666666;
+      }
+      .menu-option {
+        padding: 10px 0;
+        cursor: pointer;
+        color: #007bff;
+      }
+      .menu-option:hover {
+        color: #0056b3;
       }
     </style>
   </head>
   <body>
     <div id="app"></div>
-    
-    <!-- 提示框 -->
-    <div id="installPrompt">
-      <p>将本站添加到主屏幕，以获得更好的体验。</p>
-      <button id="installButton">添加到主屏幕</button>
+
+    <!-- 菜单按钮 -->
+    <div class="menu-button" id="menuButton">☰</div>
+
+    <!-- 侧边菜单 -->
+    <div class="side-menu" id="sideMenu">
+      <div class="menu-content">
+        <div class="menu-option" id="addToHomeScreen">添加到主屏幕</div>
+        <!-- 可添加更多菜单选项 -->
+      </div>
+      <!-- GitHub 信息 -->
+      <div class="github-info">
+        <p>GitHub 用户名: jyf0214</p>
+        <p>账号: jyf0214</p>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>
     <script>
-      // 检查是否已经安装或提示过
-      const installPrompt = document.getElementById('installPrompt');
-      const installButton = document.getElementById('installButton');
+      // 菜单按钮和侧边菜单的显示控制
+      const menuButton = document.getElementById('menuButton');
+      const sideMenu = document.getElementById('sideMenu');
+      const addToHomeScreenOption = document.getElementById('addToHomeScreen');
+
+      // 切换菜单显示状态
+      menuButton.addEventListener('click', () => {
+        sideMenu.classList.toggle('visible');
+      });
+
+      // 添加到主屏幕的逻辑
       let deferredPrompt;
 
-      // 检查是否已经添加到桌面，或在PWA环境中运行
-      const isPWA = window.matchMedia('(display-mode: standalone)').matches;
-      const alreadyPrompted = localStorage.getItem('pwaAdded') === 'true';
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+      });
 
-      if (!isPWA && !alreadyPrompted) {
-        // 捕获 beforeinstallprompt 事件
-        window.addEventListener('beforeinstallprompt', (e) => {
-          e.preventDefault();
-          deferredPrompt = e;
-          // 显示提示框
-          installPrompt.classList.add('visible');
-        });
-
-        // 处理“添加到主屏幕”按钮的点击事件
-        installButton.addEventListener('click', () => {
-          if (deferredPrompt) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-              if (choiceResult.outcome === 'accepted') {
-                console.log('用户接受了添加到主屏幕的提示');
-                localStorage.setItem('pwaAdded', 'true'); // 设置标记避免重复弹出
-              } else {
-                console.log('用户拒绝了添加到主屏幕的提示');
-              }
-              installPrompt.classList.remove('visible');
-              deferredPrompt = null;
-            });
-          }
-        });
-      }
+      addToHomeScreenOption.addEventListener('click', () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+              console.log('用户已添加到主屏幕');
+            } else {
+              console.log('用户取消了添加到主屏幕');
+            }
+            deferredPrompt = null;
+          });
+        } else {
+          alert('此设备已安装 PWA 应用或不支持此功能');
+        }
+      });
     </script>
   </body>
 </html>
