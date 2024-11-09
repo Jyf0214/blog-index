@@ -7,40 +7,54 @@
     <title>Jyf0214's Blog Index</title>
     
     <style>
-      /* 弹出框样式 */
-      #installPrompt {
-        display: none;
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%) translateY(100px);
-        padding: 15px;
-        background: #ffffff;
-        border: 1px solid #cccccc;
-        border-radius: 10px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        text-align: center;
-        transition: all 0.3s ease-out;
-        opacity: 0;
-      }
-      #installPrompt.visible {
-        display: block;
-        transform: translateX(-50%) translateY(0);
-        opacity: 1;
-      }
-      #installPrompt button {
-        margin-top: 10px;
-        padding: 8px 15px;
-        background-color: #007bff;
-        color: #ffffff;
-        border: none;
-        border-radius: 5px;
+      /* 样式: 菜单按钮和侧边菜单 */
+      .menu-button {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 24px;
         cursor: pointer;
-        transition: background-color 0.2s ease, transform 0.1s ease;
+        z-index: 1000;
       }
-      #installPrompt button:active {
-        background-color: #0056b3;
-        transform: scale(0.95);
+      .side-menu {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 250px;
+        height: 100%;
+        background: #ffffff;
+        box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 999;
+        padding-top: 60px;
+      }
+      .side-menu.visible {
+        transform: translateX(0);
+      }
+      .menu-content {
+        padding: 15px;
+        font-size: 18px;
+        color: #333333;
+      }
+      .menu-content p {
+        margin: 15px 0;
+      }
+      .github-info {
+        position: absolute;
+        bottom: 20px;
+        width: 100%;
+        text-align: center;
+        font-size: 14px;
+        color: #666666;
+      }
+      .menu-option {
+        padding: 10px 0;
+        cursor: pointer;
+        color: #007bff;
+      }
+      .menu-option:hover {
+        color: #0056b3;
       }
     </style>
     <script type="module" crossorigin="" src="/assets/app-4c3b2fce.js"></script>
@@ -48,50 +62,58 @@
   <meta name="description" content="This is Jyf0214's personal blog index page."><meta name="keywords" content="Blog, Index, Index Page, Jyf0214"></head>
   <body>
     <div id="app" data-server-rendered="true"><div id="main-view" data-v-5fe95229=""><div class="ban-touch-mask" data-v-5fe95229="" data-v-9ae28240=""></div><a class="github-badge" href="https://github.com/Jyf0214" data-v-5fe95229="" data-v-725337c4=""><span role="img" aria-label="github" style="font-size:2rem;" class="anticon anticon-github" data-v-725337c4=""><svg focusable="false" class="" style="" data-icon="github" width="1em" height="1em" fill="currentColor" aria-hidden="true" viewBox="64 64 896 896"><path d="M511.6 76.3C264.3 76.2 64 276.4 64 523.5 64 718.9 189.3 885 363.8 946c23.5 5.9 19.9-10.8 19.9-22.2v-77.5c-135.7 15.9-141.2-73.9-150.3-88.9C215 726 171.5 718 184.5 703c30.9-15.9 62.4 4 98.9 57.9 26.4 39.1 77.9 32.5 104 26 5.7-23.5 17.9-44.5 34.7-60.8-140.6-25.2-199.2-111-199.2-213 0-49.5 16.3-95 48.3-131.7-20.4-60.5 1.9-112.3 4.9-120 58.1-5.2 118.5 41.6 123.2 45.3 33-8.9 70.7-13.6 112.9-13.6 42.4 0 80.2 4.9 113.5 13.9 11.3-8.6 67.3-48.8 121.3-43.9 2.9 7.7 24.7 58.3 5.5 118 32.4 36.8 48.9 82.7 48.9 132.3 0 102.2-59 188.1-200 212.9a127.5 127.5 0 0138.1 91v112.5c.8 9 0 17.9 15 17.9 177.1-59.7 304.6-227 304.6-424.1 0-247.2-200.4-447.3-447.5-447.3z"></path></svg></span></a><div class="logo-area" style="background:url(http://api.mmp.cc/api/bing?size=UHD&amp;type=jpg);" data-v-5fe95229="" data-v-1403ee16=""><div class="img-shadow" data-v-1403ee16=""></div><div class="inner" style="cursor:pointer;" data-v-1403ee16=""><img class="main-logo" src="/assets/logo-518a25a6.svg" data-v-1403ee16=""><div class="hello" data-v-1403ee16=""><div data-v-1403ee16=""></div><div class="hello_bottom_text" data-v-1403ee16="">点击以访问 Jyf0214-Blog</div></div></div></div><section class="website-drawer" data-v-5fe95229="" data-v-74856422=""><div class="drawer-handler" data-v-74856422=""><span class="drawer-handler__icon" data-v-74856422=""><span role="img" aria-label="up" class="anticon anticon-up" data-v-74856422=""><svg focusable="false" class="" style="" data-icon="up" width="1em" height="1em" fill="currentColor" aria-hidden="true" viewBox="64 64 896 896"><path d="M890.5 755.3L537.9 269.2c-12.8-17.6-39-17.6-51.7 0L133.5 755.3A8 8 0 00140 768h75c5.1 0 9.9-2.5 12.9-6.6L512 369.8l284.1 391.6c3 4.1 7.8 6.6 12.9 6.6h75c6.5 0 10.3-7.4 6.5-12.7z"></path></svg></span></span><span class="drawer-handler__text slide-up" data-v-74856422="">Slide Up</span><span class="drawer-handler__text wheel-up" data-v-74856422="">Wheel Up</span></div><!--teleport start--><!--teleport end--></section><!----></div></div>
-    
-    <!-- 提示框 -->
-    <div id="installPrompt">
-      <p>将本站添加到主屏幕，以获得更好的体验。</p>
-      <button id="installButton">添加到主屏幕</button>
+
+    <!-- 菜单按钮 -->
+    <div class="menu-button" id="menuButton">☰</div>
+
+    <!-- 侧边菜单 -->
+    <div class="side-menu" id="sideMenu">
+      <div class="menu-content">
+        <div class="menu-option" id="addToHomeScreen">添加到主屏幕</div>
+        <!-- 可添加更多菜单选项 -->
+      </div>
+      <!-- GitHub 信息 -->
+      <div class="github-info">
+        <p>GitHub 用户名: jyf0214</p>
+        <p>账号: jyf0214</p>
+      </div>
     </div>
 
     
     <script>
-      // 检查是否已经安装或提示过
-      const installPrompt = document.getElementById('installPrompt');
-      const installButton = document.getElementById('installButton');
+      // 菜单按钮和侧边菜单的显示控制
+      const menuButton = document.getElementById('menuButton');
+      const sideMenu = document.getElementById('sideMenu');
+      const addToHomeScreenOption = document.getElementById('addToHomeScreen');
+
+      // 切换菜单显示状态
+      menuButton.addEventListener('click', () => {
+        sideMenu.classList.toggle('visible');
+      });
+
+      // 添加到主屏幕的逻辑
       let deferredPrompt;
 
-      // 检查是否已经添加到桌面，或在PWA环境中运行
-      const isPWA = window.matchMedia('(display-mode: standalone)').matches;
-      const alreadyPrompted = localStorage.getItem('pwaAdded') === 'true';
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+      });
 
-      if (!isPWA && !alreadyPrompted) {
-        // 捕获 beforeinstallprompt 事件
-        window.addEventListener('beforeinstallprompt', (e) => {
-          e.preventDefault();
-          deferredPrompt = e;
-          // 显示提示框
-          installPrompt.classList.add('visible');
-        });
-
-        // 处理“添加到主屏幕”按钮的点击事件
-        installButton.addEventListener('click', () => {
-          if (deferredPrompt) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-              if (choiceResult.outcome === 'accepted') {
-                console.log('用户接受了添加到主屏幕的提示');
-                localStorage.setItem('pwaAdded', 'true'); // 设置标记避免重复弹出
-              } else {
-                console.log('用户拒绝了添加到主屏幕的提示');
-              }
-              installPrompt.classList.remove('visible');
-              deferredPrompt = null;
-            });
-          }
-        });
-      }
+      addToHomeScreenOption.addEventListener('click', () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+              console.log('用户已添加到主屏幕');
+            } else {
+              console.log('用户取消了添加到主屏幕');
+            }
+            deferredPrompt = null;
+          });
+        } else {
+          alert('此设备已安装 PWA 应用或不支持此功能');
+        }
+      });
     </script>
   
 </body></html>
