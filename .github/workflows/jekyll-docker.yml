@@ -42,7 +42,7 @@ jobs:
         mv src/assets/icon-144x144.png dist/assets/
         mv src/assets/icon-256x256.png dist/assets/
         mv src/assets/icon-512x512.png dist/assets/
-        cp -r src/assets/*.{svg,jpg,png,gif} dist/assets
+        cp -r src/assets/*.{svg,jpg,png,gif} dist/assets/
         cp -r *.json dist/
 
 
