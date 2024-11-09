@@ -8,6 +8,9 @@
   "index.html": [
     "/assets/logo-518a25a6.svg"
   ],
+  "index.html?html-proxy&inline-css&index=0.css": [
+    "/assets/logo-518a25a6.svg"
+  ],
   "node_modules/@ant-design/colors/dist/index.esm.js": [
     "/assets/logo-518a25a6.svg"
   ],
