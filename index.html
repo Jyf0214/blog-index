@@ -171,35 +171,25 @@
           window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            installPrompt.classList.add('visible');
           });
 
-          installButton.addEventListener('click', () => {
+          // 只有点击菜单里的“添加到主屏幕”时才弹出提示框
+          addToHome.addEventListener('click', () => {
             if (deferredPrompt) {
-              deferredPrompt.prompt();
-              deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                  localStorage.setItem('pwaAdded', 'true');
-                }
-                installPrompt.classList.remove('visible');
-                deferredPrompt = null;
+              installPrompt.classList.add('visible'); // 弹出提示框
+              installButton.addEventListener('click', () => {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                  if (choiceResult.outcome === 'accepted') {
+                    localStorage.setItem('pwaAdded', 'true');
+                  }
+                  installPrompt.classList.remove('visible');
+                  deferredPrompt = null;
+                });
               });
             }
           });
         }
-
-        // 添加到主屏幕按钮
-        addToHome.addEventListener('click', () => {
-          if (deferredPrompt) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-              if (choiceResult.outcome === 'accepted') {
-                localStorage.setItem('pwaAdded', 'true');
-              }
-              deferredPrompt = null;
-            });
-          }
-        });
       });
     </script>
   
