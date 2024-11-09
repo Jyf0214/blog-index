@@ -36,7 +36,7 @@ jobs:
       run: |
         mkdir -p dist/assets 
         # 移动并删除原始文件
-        cp src/assets/icon-32x32.png src/assets/icon-48x48.png src/assets/icon-96x96.png src/assets/icon-144x144.png src/assets/icon-256x256.png src/assets/icon-512x512.png dist/
+        cp src/assets/icon-36x36.png src/assets/icon-48x48.png src/assets/icon-96x96.png src/assets/icon-144x144.png src/assets/icon-512x512.png dist/
         cp -r src/assets/*.{svg,jpg,png,gif} dist/assets/
         cp -r *.json dist/
 
