@@ -39,6 +39,7 @@ jobs:
         cp src/assets/icon-36x36.png src/assets/icon-48x48.png src/assets/icon-96x96.png src/assets/icon-144x144.png src/assets/icon-512x512.png dist/
         cp -r src/assets/*.{svg,jpg,png,gif} dist/assets/
         cp -r *.json dist/
+        cp -r *.js dist/
 
 
     - name: Deploy to GitHub Pages
