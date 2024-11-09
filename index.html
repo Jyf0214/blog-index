@@ -10,6 +10,7 @@
 
     <!-- 引入PWA配置文件 -->
     <link rel="manifest" href="/manifest.json">
+
     <style>
       /* 菜单按钮样式 */
       .menu-button {
@@ -46,19 +47,29 @@
       .menu a:hover {
         background-color: #444;
       }
+      /* GitHub 头像及用户名布局 */
       .github-info {
         position: absolute;
         bottom: 20px;
         left: 20px;
         display: flex;
         align-items: center;
+        flex-direction: column;
       }
       .github-info img {
-        width: 30px;
-        height: 30px;
+        width: 50px;
+        height: 50px;
         border-radius: 50%;
-        margin-right: 10px;
+        margin-bottom: 10px;
+        object-fit: cover;
+        loading: eager;
       }
+      .github-info span {
+        font-size: 14px;
+        color: #fff;
+        text-align: center;
+      }
+
       /* 过渡效果 */
       #installPrompt {
         display: none;
@@ -104,7 +115,8 @@
     <div class="menu" id="menu">
       <a href="#" id="addToHomeScreen">添加到主屏幕</a>
       <div class="github-info">
-        <img src="https://avatars.githubusercontent.com/u/3597788451?v=4" alt="GitHub Avatar" />
+        <!-- GitHub 头像和用户名 -->
+        <img src="https://avatars.githubusercontent.com/u/3597788451?v=4" alt="GitHub Avatar" loading="eager" />
         <span>Jyf0214</span>
       </div>
     </div>
