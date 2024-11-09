@@ -1,39 +1,89 @@
-const CACHE_NAME = 'jyf0214-blog-cache-v1';
-const urlsToCache = [
-  '/',
-  '/favicon.ico',
-  '/manifest.json',
-  '/src/main.ts',
-  // 添加其他静态资源路径
-];
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <title>Jyf0214's Blog Index</title>
+    
+    <style>
+      /* 弹出框样式 */
+      #installPrompt {
+        display: none;
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 15px;
+        background: #fff;
+        border: 1px solid #ccc;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        text-align: center;
+      }
+      #installPrompt button {
+        margin-top: 10px;
+        padding: 8px 15px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    
+    <!-- 弹出框 -->
+    <div id="installPrompt">
+      <p>将本站添加到主屏幕，以获得更好的体验。</p>
+      <button id="installButton">添加到主屏幕</button>
+    </div>
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(urlsToCache);
-    })
-  );
-});
+    <script type="module" src="/src/main.ts"></script>
+    <script>
+      // 注册 Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('/service-worker.js')
+            .then((registration) => {
+              console.log('Service Worker 注册成功:', registration.scope);
+            })
+            .catch((error) => {
+              console.log('Service Worker 注册失败:', error);
+            });
+        });
+      }
 
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
-  );
-});
+      // 主屏幕提示
+      let deferredPrompt;
+      const installPrompt = document.getElementById('installPrompt');
+      const installButton = document.getElementById('installButton');
 
-self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (!cacheWhitelist.includes(cacheName)) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
-});
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // 显示提示框
+        installPrompt.style.display = 'block';
+      });
+
+      installButton.addEventListener('click', () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+              console.log('用户接受了添加到主屏幕的提示');
+            } else {
+              console.log('用户拒绝了添加到主屏幕的提示');
+            }
+            // 隐藏提示框
+            installPrompt.style.display = 'none';
+            deferredPrompt = null;
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
