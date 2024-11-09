@@ -34,8 +34,15 @@ jobs:
 
     - name: Copy SVG files to output directory
       run: |
-        mkdir -p dist/assets  # 确保 dist/assets 目录存在
-        cp -r src/assets/*.{svg,jpg,png,gif} dist/
+        mkdir -p dist/assets 
+        # 移动并删除原始文件
+        mv src/assets/icon-32x32.png dist/assets/
+        mv src/assets/icon-48x48.png dist/assets/
+        mv src/assets/icon-96x96.png dist/assets/
+        mv src/assets/icon-144x144.png dist/assets/
+        mv src/assets/icon-256x256.png dist/assets/
+        mv src/assets/icon-512x512.png dist/assets/
+        cp -r src/assets/*.{svg,jpg,png,gif} dist/assets
         cp -r *.json dist/
 
 
