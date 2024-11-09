@@ -9,12 +9,12 @@
     <title>Jyf0214's Blog Index</title>
 
     <style>
-      /* 菜单按钮样式 */
+      /* 半透明菜单按钮样式 */
       #menuButton {
         position: fixed;
         top: 20px;
         left: 20px;
-        background: #007bff;
+        background: rgba(0, 123, 255, 0.7); /* 半透明背景 */
         color: #fff;
         border: none;
         border-radius: 5px;
@@ -34,6 +34,7 @@
         box-shadow: 4px 0 10px rgba(0, 0, 0, 0.2);
         transform: translateX(-100%);
         transition: transform 0.3s ease;
+        z-index: 1000;
       }
 
       #menu.open {
@@ -53,6 +54,18 @@
         text-decoration: none;
         color: #007bff;
         font-size: 18px;
+      }
+
+      /* 关闭按钮样式 */
+      #closeMenu {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: transparent;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #333;
       }
 
       #menu .github-info {
@@ -113,14 +126,15 @@
   <body>
     <div id="app"></div>
 
-    <!-- 菜单按钮 -->
+    <!-- 半透明菜单按钮 -->
     <button id="menuButton">☰</button>
 
     <!-- 菜单 -->
     <div id="menu">
+      <button id="closeMenu">&times;</button> <!-- 关闭按钮 -->
       <ul>
         <li><a href="#" id="addToHome">添加到主屏幕</a></li>
-        <!-- 添加更多选项 -->
+        <!-- 其他选项 -->
       </ul>
       <div class="github-info">
         <img id="githubAvatar" src="" alt="GitHub Avatar" />
@@ -137,12 +151,17 @@
     <script type="module" src="/src/main.ts"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        // 菜单切换
+        // 菜单切换和关闭
         const menuButton = document.getElementById('menuButton');
         const menu = document.getElementById('menu');
+        const closeMenu = document.getElementById('closeMenu');
 
         menuButton.addEventListener('click', () => {
           menu.classList.toggle('open');
+        });
+
+        closeMenu.addEventListener('click', () => {
+          menu.classList.remove('open');
         });
 
         // 获取 GitHub 头像和用户名
@@ -172,10 +191,10 @@
             deferredPrompt = e;
           });
 
-          // 只有点击菜单里的“添加到主屏幕”时才弹出提示框
+          // 点击菜单里的“添加到主屏幕”时才弹出提示框
           addToHome.addEventListener('click', () => {
             if (deferredPrompt) {
-              installPrompt.classList.add('visible'); // 弹出提示框
+              installPrompt.classList.add('visible');
               installButton.addEventListener('click', () => {
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choiceResult) => {
