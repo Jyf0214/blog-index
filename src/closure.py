@@ -66,21 +66,20 @@ def get_game_logs(token, account, offset):
     except ValueError as e:
         print(f"JSON解析错误: {e}")
 
-# 将时间戳转换为可读的时间格式
-def timestamp_to_datetime(timestamp):
-    return datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-
-# 获取一言
-def get_hitokoto():
+# 获取随机一言
+def get_random_quote():
     try:
         response = requests.get("https://v1.hitokoto.cn/?c=i")
         response.raise_for_status()  # 检查请求是否成功
-        data = response.json()
-        hitokoto = data.get("hitokoto", "没有一言")
-        return hitokoto
+        quote_data = response.json()
+        return quote_data["hitokoto"], quote_data["from"], quote_data["from_who"]
     except requests.exceptions.RequestException as e:
         print(f"获取一言失败: {e}")
-        return "没有一言"
+        return "这是一句随机一言。", "未知", "未知"
+
+# 将时间戳转换为可读的时间格式
+def timestamp_to_datetime(timestamp):
+    return datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 # 打印符合条件的游戏日志并生成邮件内容
 def get_filtered_game_logs(logs_data):
@@ -102,22 +101,19 @@ def get_filtered_game_logs(logs_data):
 
         if any(keyword in log_content for keyword in keywords):
             filtered_logs.append(
-                f"\n时间: {log_time}\n名称: {log_name}\n\n日志: {log_content}\n"
+                f"\n时间: {log_time}<br>名称: {log_name}<br><br>日志: {log_content}"
             )
 
-    return "\n".join(filtered_logs) if filtered_logs else "没有符合条件的日志"
+    return "<br>".join(filtered_logs) if filtered_logs else "没有符合条件的日志"
 
 # 使用Lark SMTP发送邮件
 def send_email(subject, body):
     try:
-        msg = MIMEMultipart()
-        msg["From"] = smtp_user
-        msg["To"] = to_email
-        msg["Subject"] = subject
+        # 获取随机一言
+        quote, from_info, from_who = get_random_quote()
+        background_image_url = "https://t.mwm.moe/mp"  # API背景图片链接
 
-        # 邮件内容，加入HTML背景图片和一言
-        background_image_url = "https://t.mwm.moe/mp"  # 图片API链接
-        hitokoto = get_hitokoto()  # 获取一言
+        # 构建HTML邮件内容
         email_body = f"""
         <!DOCTYPE html>
         <html lang="zh-CN">
@@ -133,15 +129,33 @@ def send_email(subject, body):
                 <section style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; text-align: center; color: #000; padding: 20px; box-sizing: border-box; background-color: rgba(255, 255, 255, 0.5); border-radius: 15px;">
                     <h2 style="margin: 0; font-size: 24px;">日志</h2>
                     <p style="margin: 10px 0; font-size: 16px;">{body}</p>
-                    <p style="margin: 10px 0; font-size: 16px;">一言: {hitokoto}</p>
+                    <p style="margin: 10px 0; font-size: 16px;">一言: {quote}</p>
+                    <p style="margin: 10px 0; font-size: 16px;">出自: {from_info} — {from_who}</p>
                     <p style="margin: 10px 0; font-size: 16px;">背景图片链接</p>
                     <a href="{background_image_url}" style="color: #000; font-size: 14px; text-decoration: none;">{background_image_url}</a>
                 </section>
             </div>
+
+            <div class="container" style="display: flex; align-items: center; max-width: 400px; margin: 20px auto; position: relative; overflow: hidden; border-radius: 15px; background-color: #eaeaea; padding: 10px; height: 80px;">
+                <div class="background" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: url('https://k.sinaimg.cn/n/sinacn10107/742/w1024h518/20190623/0bf4-hyvnhqp8087508.jpg/w700d1q75cms.jpg'); background-size: cover; background-position: center; opacity: 0.2; z-index: 1;"></div>
+                <div class="mask" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255, 255, 255, 0.8); z-index: 2;"></div>
+                <img src="https://avatars.githubusercontent.com/u/169313142?v=4" alt="头像" style="width: 60px; height: 60px; border-radius: 50%; margin-right: 15px; z-index: 3;">
+                <div class="info" style="display: flex; flex-direction: column; flex-grow: 1; z-index: 3;">
+                    <h2 style="font-size: 1.2em; margin: 0; color: #333;">Amiya(Jyf0214)</h2>
+                    <p style="font-size: 1em; margin: 0; color: #555;"><strong>Email:</strong> admin@amiya.ip-dynamic.org</p>
+                </div>
+            </div>
         </body>
         </html>
         """
+        
+        # 发送邮件
+        msg = MIMEMultipart()
+        msg["From"] = smtp_user
+        msg["To"] = to_email
+        msg["Subject"] = subject
 
+        # 邮件内容
         msg.attach(MIMEText(email_body, "html", "utf-8"))
 
         with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
@@ -152,27 +166,19 @@ def send_email(subject, body):
         print(f"发送邮件失败: {e}")
 
 # 执行流程
+# 执行流程
 if __name__ == "__main__":
+    # 登录并获取Token
     token = login()
+    
     if token:
-        # 从环境变量中获取账号列表
-        accounts = os.getenv("ACCOUNTS").split(",")  # 使用逗号分隔的账号列表
-        offsets = [0]  # 根据需要调整offset
-
-        all_filtered_logs = ""
-
-        for account in accounts:
-            print(f"\n查询账号中(公开库不提示私密信息)")
-            for offset in offsets:
-                logs_data = get_game_logs(token, account.strip(), offset)  # 去除账号中的空格
-                if logs_data:
-                    filtered_logs = get_filtered_game_logs(logs_data)
-                    all_filtered_logs += f"\n\n账号: {account}\nOffset: {offset}\n{filtered_logs}"
-                else:
-                    print("没有更多日志")
-
-        # 如果有符合条件的日志，才发送邮件
-        if all_filtered_logs.strip():  # 检查是否有非空的日志内容
-            send_email(subject, all_filtered_logs)
-        else:
-            print("没有符合条件的日志，邮件未发送")
+        # 获取游戏日志
+        account = os.getenv("ACCOUNT")  # 替换为实际的账号
+        logs_data = get_game_logs(token, account, offset=0)
+        
+        if logs_data:
+            # 过滤并生成邮件内容
+            body = get_filtered_game_logs(logs_data)
+            
+            # 发送邮件
+            send_email(subject, body)
