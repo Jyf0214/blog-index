@@ -106,7 +106,7 @@ def get_filtered_game_logs(logs_data):
                 f"<br>时间: {log_time}<br>日志: {log_content}（{log_name}）"
             )
 
-    return "<br>".join(filtered_logs) if filtered_logs else "没有符合条件的日志"
+    return "<br>".join(filtered_logs) if filtered_logs else "<br>没有符合条件的日志<br>"
 
 # 使用Lark SMTP发送邮件
 def send_email(subject, body, attachments):
