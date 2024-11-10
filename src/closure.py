@@ -86,7 +86,8 @@ def timestamp_to_datetime(timestamp):
 # 打印符合条件的游戏日志并生成邮件内容
 def get_filtered_game_logs(logs_data):
     keywords = [
-        "[基建] 当前训练室角色",
+        "[卡池] 单抽获得干员：[5",
+        "[卡池] 单抽获得干员：[6",
         "[公招] 高星提醒",
     ]
 
