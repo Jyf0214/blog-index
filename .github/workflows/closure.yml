@@ -33,7 +33,7 @@ jobs:
 
       - name: Generate Random String and Save to TXT
         run: |
-          python src/random.py
+          python src/random_string.py
 
       - name: Run log script
         run: |
