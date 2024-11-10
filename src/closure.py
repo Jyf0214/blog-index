@@ -1,6 +1,5 @@
 import requests
 import os
-import json
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -21,8 +20,8 @@ login_data = {
 
 smtp_server = "smtp.larksuite.com"
 smtp_port = 465
-smtp_user = os.getenv("SMTP_USER")
-smtp_password = os.getenv("SMTP_PASSWORD")
+smtp_user = os.getenv("SMTP_USER")  # 发送方邮箱账号
+smtp_password = os.getenv("SMTP_PASSWORD")  # 发送方邮箱密码
 to_email = os.getenv("TOEMAIL")
 subject = os.getenv("MAIL_SUBJECT")
 
@@ -50,6 +49,7 @@ def get_game_logs(token, account, offset):
         url = game_log_url_template.format(account, offset)
         response = requests.get(url, headers=headers)
         response.raise_for_status()
+
         response_json = response.json()
 
         if response_json["code"] == 1:
@@ -62,6 +62,10 @@ def get_game_logs(token, account, offset):
     except requests.exceptions.RequestException as e:
         print(f"获取游戏日志请求错误: {e}")
 
+# 时间戳转换
+def timestamp_to_datetime(timestamp):
+    return datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
 # 筛选游戏日志
 def get_filtered_game_logs(logs_data):
     keywords = [
@@ -70,13 +74,15 @@ def get_filtered_game_logs(logs_data):
     ]
     filtered_logs = []
     for log_entry in logs_data.get("logs", []):
+        log_id = log_entry.get("id", "无")
         log_ts = log_entry.get("ts", "无")
+        log_name = log_entry.get("name", "无")
         log_content = log_entry.get("content", "无")
         log_time = timestamp_to_datetime(log_ts)
 
         if any(keyword in log_content for keyword in keywords):
             filtered_logs.append(
-                f"时间: {log_time}<br>日志: {log_content}<br><br>"
+                f"时间: {log_time}<br>名称: {log_name}<br>日志: {log_content}<br><br>"
             )
     return "<br>".join(filtered_logs) if filtered_logs else "没有符合条件的日志"
 
@@ -86,12 +92,14 @@ def get_hitokoto():
         response = requests.get("https://v1.hitokoto.cn/?c=i")
         response.raise_for_status()
         data = response.json()
-        return f"{data.get('hitokoto', '无')} ——{data.get('from_who', '未知')}"
+        hitokoto = data.get("hitokoto", "无")
+        from_who = data.get("from_who", "未知")
+        return f"{hitokoto} ——{from_who}"
     except requests.exceptions.RequestException as e:
         print(f"获取一言内容失败: {e}")
         return "获取一言内容失败"
 
-# 下载背景图片
+# 下载并获取背景图片
 def download_background_image():
     try:
         response = requests.get("https://t.mwm.moe/mp")
@@ -112,9 +120,10 @@ def send_email(subject, body, image_data):
         # 邮件内容
         msg.attach(MIMEText(body, "html", "utf-8"))
 
+        # 添加背景图片作为附件
         if image_data:
             image = MIMEImage(image_data)
-            image.add_header('Content-ID', '<background>')
+            image.add_header('Content-ID', '<background_image>')  # 确保Content-ID一致
             msg.attach(image)
 
         with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
@@ -133,7 +142,7 @@ if __name__ == "__main__":
 
         all_filtered_logs = ""
         for account in accounts:
-            print(f"\n查询账号 {account}")
+            print(f"\n查询账号中(公开库不提示私密信息)")
             for offset in offsets:
                 logs_data = get_game_logs(token, account.strip(), offset)
                 if logs_data:
@@ -142,44 +151,32 @@ if __name__ == "__main__":
                 else:
                     print("没有更多日志")
 
+        # 处理“一言”内容
         random_quote = get_hitokoto()
         background_image_data = download_background_image()
-        background_image_url = "cid:background" if background_image_data else "https://kartinki.pics/uploads/posts/2022-09/1662363908_32-kartinkin-net-p-arti-etti-pinterest-44.jpg"
 
-        # HTML 邮件模板
-        EMAIL_TEMPLATE = f"""
+        # 邮件HTML内容
+        email_body = f"""
         <!DOCTYPE html>
         <html lang="zh-CN">
         <head>
             <meta charset="UTF-8">
-            <meta http-equiv="X-UA-Compatible" content="IE=edge">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>游戏日志</title>
+            <title>日志</title>
         </head>
         <body>
-            <div class="cover" style="position: relative; width: 100%; max-width: 600px; margin: 0 auto; overflow: hidden; border-radius: 15px;">
-                <img src="{background_image_url}" alt="background" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(50%);">
+            <div style="position: relative; width: 100%; max-width: 600px; margin: 0 auto; overflow: hidden; border-radius: 15px;">
+                <img src="cid:background_image" alt="background" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(50%);">
                 <section style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; text-align: center; color: #000; padding: 20px; background-color: rgba(255, 255, 255, 0.5); border-radius: 15px;">
-                    <h2 style="margin: 0; font-size: 24px;">游戏日志</h2>
+                    <h2 style="margin: 0; font-size: 24px;">日志</h2>
                     <p style="margin: 10px 0; font-size: 16px;">{all_filtered_logs}</p>
                     <p style="margin: 10px 0; font-size: 16px;">一言: {random_quote}</p>
                 </section>
             </div>
-
-            <div class="container" style="position: relative; width: 100%; max-width: 400px; margin: 20px auto; overflow: hidden; border-radius: 15px; background-color: #eaeaea; padding: 10px; height: 80px;">
-                <div class="background" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: url('https://pic3.zhimg.com/80/v2-fc0b7e19e084c196a0362e28b2eb431a_1440w.webp'); background-size: cover; background-position: center; opacity: 0.2;"></div>
-                <div class="mask" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255, 255, 255, 0.8);"></div>
-                <img src="https://avatars.githubusercontent.com/u/184641585?v=4" alt="头像" style="width: 60px; height: 60px; border-radius: 50%; margin-right: 15px; position: relative; z-index: 3;">
-                <div class="info" style="position: relative; z-index: 3;">
-                    <h2 style="font-size: 1.2em; margin: 0; color: #333;">Paimon(Jyf0214)</h2>
-                    <p style="font-size: 1em; margin: 0; color: #555;"><strong>Email:</strong> paimon@closure.ip-dynamic.org</p>
-                </div>
-            </div>
         </body>
         </html>
         """
-
         if all_filtered_logs.strip():
-            send_email(subject, EMAIL_TEMPLATE, background_image_data)
+            send_email(subject, email_body, background_image_data)
         else:
             print("没有符合条件的日志，邮件未发送")
