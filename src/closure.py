@@ -1,5 +1,6 @@
 import requests
 import os
+import json
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -23,18 +24,6 @@ smtp_user = os.getenv("SMTP_USER")  # 发送方邮箱账号
 smtp_password = os.getenv("SMTP_PASSWORD")  # 发送方邮箱密码
 to_email = os.getenv("TOEMAIL")
 subject = os.getenv("MAIL_SUBJECT")
-
-# 获取“一言”内容
-def get_hitokoto():
-    try:
-        response = requests.get("https://v1.hitokoto.cn/?c=i")
-        response.raise_for_status()
-        hitokoto_data = response.json()
-        hitokoto = hitokoto_data.get("hitokoto", "没有一言")
-        return hitokoto
-    except requests.exceptions.RequestException as e:
-        print(f"获取一言失败: {e}")
-        return "没有一言"
 
 # 登录并获取Token
 def login():
@@ -81,6 +70,18 @@ def get_game_logs(token, account, offset):
 def timestamp_to_datetime(timestamp):
     return datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
+# 获取一言
+def get_hitokoto():
+    try:
+        response = requests.get("https://v1.hitokoto.cn/?c=i")
+        response.raise_for_status()  # 检查请求是否成功
+        data = response.json()
+        hitokoto = data.get("hitokoto", "没有一言")
+        return hitokoto
+    except requests.exceptions.RequestException as e:
+        print(f"获取一言失败: {e}")
+        return "没有一言"
+
 # 打印符合条件的游戏日志并生成邮件内容
 def get_filtered_game_logs(logs_data):
     keywords = [
@@ -101,7 +102,7 @@ def get_filtered_game_logs(logs_data):
 
         if any(keyword in log_content for keyword in keywords):
             filtered_logs.append(
-                f"\n时间: {log_time}\n名称: {log_name}\n\n日志: {log_content}"
+                f"\n时间: {log_time}\n名称: {log_name}\n\n日志: {log_content}\n"
             )
 
     return "\n".join(filtered_logs) if filtered_logs else "没有符合条件的日志"
@@ -114,8 +115,34 @@ def send_email(subject, body):
         msg["To"] = to_email
         msg["Subject"] = subject
 
-        # 邮件内容
-        msg.attach(MIMEText(body, "html", "utf-8"))
+        # 邮件内容，加入HTML背景图片和一言
+        background_image_url = "https://t.mwm.moe/mp"  # 图片API链接
+        hitokoto = get_hitokoto()  # 获取一言
+        email_body = f"""
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+            <meta charset="UTF-8">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Jyf0214</title>
+        </head>
+        <body>
+            <div class="cover" style="position: relative; width: 100%; max-width: 600px; margin: 0 auto; overflow: hidden; border-radius: 15px;">
+                <img src="{background_image_url}" alt="background" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(50%);">
+                <section style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; text-align: center; color: #000; padding: 20px; box-sizing: border-box; background-color: rgba(255, 255, 255, 0.5); border-radius: 15px;">
+                    <h2 style="margin: 0; font-size: 24px;">日志</h2>
+                    <p style="margin: 10px 0; font-size: 16px;">{body}</p>
+                    <p style="margin: 10px 0; font-size: 16px;">一言: {hitokoto}</p>
+                    <p style="margin: 10px 0; font-size: 16px;">背景图片链接</p>
+                    <a href="{background_image_url}" style="color: #000; font-size: 14px; text-decoration: none;">{background_image_url}</a>
+                </section>
+            </div>
+        </body>
+        </html>
+        """
+
+        msg.attach(MIMEText(email_body, "html", "utf-8"))
 
         with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
             server.login(smtp_user, smtp_password)
@@ -126,8 +153,6 @@ def send_email(subject, body):
 
 # 执行流程
 if __name__ == "__main__":
-    hitokoto = get_hitokoto()  # 获取一言
-
     token = login()
     if token:
         # 从环境变量中获取账号列表
@@ -148,28 +173,6 @@ if __name__ == "__main__":
 
         # 如果有符合条件的日志，才发送邮件
         if all_filtered_logs.strip():  # 检查是否有非空的日志内容
-            # 设置邮件的HTML内容
-            email_body = f"""
-            <!DOCTYPE html>
-            <html lang="zh-CN">
-            <head>
-                <meta charset="UTF-8">
-                <meta http-equiv="X-UA-Compatible" content="IE=edge">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Jyf0214</title>
-            </head>
-            <body>
-                <div class="cover" style="position: relative; width: 100%; max-width: 600px; margin: 0 auto; overflow: hidden; border-radius: 15px;">
-                    <img src="https://t.mwm.moe/mp" alt="background" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(50%);">
-                    <section style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; text-align: center; color: #000; padding: 20px; box-sizing: border-box; background-color: rgba(255, 255, 255, 0.5); border-radius: 15px;">
-                        <h2 style="margin: 0; font-size: 24px;">日志</h2>
-                        <p style="margin: 10px 0; font-size: 16px;">{all_filtered_logs}</p>
-                        <p style="margin: 10px 0; font-size: 16px;">一言: {hitokoto}</p>
-                    </section>
-                </div>
-            </body>
-            </html>
-            """
-            send_email(subject, email_body)
+            send_email(subject, all_filtered_logs)
         else:
             print("没有符合条件的日志，邮件未发送")
