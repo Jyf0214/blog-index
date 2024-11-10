@@ -33,7 +33,7 @@ jobs:
 
       - name: Generate Random String and Save to TXT
         run: |
-          python -c "import random; import string; random_string = ''.join(random.sample(string.ascii_letters + string.digits, k=16)); with open('random_string.txt', 'w') as f: f.write(random_string)"  # 生成16位随机字符串并保存为txt
+          python -c "import random; import string; random_string = ''.join(random.choices(string.ascii_letters + string.digits, k=16)); with open('random_string.txt', 'w') as f: f.write(random_string)"  # 生成16位随机字符串并保存为txt
 
       - name: Run log script
         run: |
