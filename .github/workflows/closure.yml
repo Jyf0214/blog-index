@@ -8,6 +8,15 @@ on:
 jobs:
   log_script:
     runs-on: ubuntu-latest
+    env:
+      EMAIL: ${{ secrets.EMAIL }}
+      PASSWORD: ${{ secrets.PASSWORD }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      TOEMAIL: ${{ secrets.TOEMAIL }}
+      MAIL_SUBJECT: ${{ secrets.MAIL_SUBJECT }}
+      # 如果有其他需要的环境变量，可以继续在这里添加
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -44,7 +53,7 @@ jobs:
           message: 'Add generated random string'
           add: 'random_string.txt'
           push: true  # 自动推送更改
-          branch: 'main'  # 推送到指定分支，如 gh-pages
+          branch: 'gh-pages'  # 推送到指定分支，如 gh-pages
 
       - name: Push changes to repository
         run: |
