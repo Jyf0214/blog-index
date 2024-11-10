@@ -43,7 +43,9 @@ jobs:
           author_email: 'github-actions[bot]@users.noreply.github.com'
           message: 'Add generated random string'
           add: 'random_string.txt'
+          push: true  # 自动推送更改
+          branch: 'main'  # 推送到指定分支，如 gh-pages
 
       - name: Push changes to repository
         run: |
-          git push
+          git push origin gh-pages  # 确保推送到正确的分支
