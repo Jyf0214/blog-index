@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt  # 安装依赖包
+          pip install request  # 安装依赖包
 
       - name: Run log script
         run: |
