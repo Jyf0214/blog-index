@@ -3,7 +3,7 @@ import subprocess
 
 # 配置
 repo_url = "git@github.com:Jyf0214/blog-index.git"
-assets_dir = "/"
+assets_dir = "."
 git_username = "Jyf0214"
 git_email = os.getenv("EMAIL") # 使用你的 GitHub 邮箱
 
