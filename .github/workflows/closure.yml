@@ -31,31 +31,14 @@ jobs:
         run: |
           pip install requests  # 安装依赖包
 
+      - name: Generate Random String and Save to TXT
+        run: |
+          python -c "import random; import string; random_string = ''.join(random.choices(string.ascii_letters + string.digits, k=16)); with open('random_string.txt', 'w') as f: f.write(random_string)"  # 生成16位随机字符串并保存为txt
+
       - name: Run log script
         run: |
           python src/closure.py  # 运行日志脚本
 
-      - name: Generate random string
-        id: random_string
+      - name: Run git push script
         run: |
-          RANDOM_STRING=$(openssl rand -base64 12)  # 生成12个字符的随机字符串
-          echo "Generated string: $RANDOM_STRING"
-          echo "random_string=$RANDOM_STRING" >> $GITHUB_ENV  # 将生成的随机字符串保存到环境变量中
-
-      - name: Save random string to a file
-        run: |
-          echo ${{ env.random_string }} > random_string.txt  # 将随机字符串保存到文件中
-
-      - name: Commit and push random string
-        uses: EndBug/add-and-commit@v7
-        with:
-          author_name: 'github-actions[bot]'
-          author_email: 'github-actions[bot]@users.noreply.github.com'
-          message: 'Add generated random string'
-          add: 'random_string.txt'
-          push: true  # 自动推送更改
-          branch: 'main'  # 推送到指定分支，如 gh-pages
-
-      - name: Push changes to repository
-        run: |
-          git push origin main  # 确保推送到正确的分支
+          python src/push.py  # 执行 gitpush 脚本
