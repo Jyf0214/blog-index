@@ -113,7 +113,9 @@ def get_filtered_game_logs(logs_data):
 def send_email(subject, body, attachments):
     try:
         msg = MIMEMultipart()
-        msg["From"] = smtp_user
+        # 优先从环境变量获取发件人邮箱地址
+        frommail = os.getenv("FROMMAIL", smtp_user)
+        msg["From"] = frommail
         msg["To"] = to_email
         msg["Subject"] = subject
 
@@ -130,7 +132,7 @@ def send_email(subject, body, attachments):
 
         with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
             server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_user, to_email, msg.as_string())
+            server.sendmail(frommail, to_email, msg.as_string())
         print("邮件发送成功")
     except Exception as e:
         print(f"发送邮件失败: {e}")
