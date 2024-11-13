@@ -19,7 +19,7 @@ login_data = {
     "password": os.getenv("PASSWORD")
 }
 
-smtp_server = "smtp.resend.com"
+smtp_server = "smtp-relay.brevo.com"
 smtp_port = 465
 smtp_user = os.getenv("SMTP_USER")  # 发送方邮箱账号
 smtp_password = os.getenv("SMTP_PASSWORD")  # 发送方邮箱密码
