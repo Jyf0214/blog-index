@@ -110,6 +110,12 @@ def get_filtered_game_logs(logs_data):
     return "<br>".join(filtered_logs) if filtered_logs else "<br>没有符合条件的日志<br>"
 
 # 使用Lark SMTP发送邮件
+import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+
 def send_email(subject, body, attachments):
     try:
         msg = MIMEMultipart()
@@ -130,19 +136,20 @@ def send_email(subject, body, attachments):
                 mime_image.add_header('Content-Disposition', 'inline', filename=image_path)
                 msg.attach(mime_image)
 
-        # 使用不同的连接方式
+        # 判断端口并选择相应的加密方式
         if smtp_port == 465:
             # 使用 SSL
             with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
                 server.login(smtp_user, smtp_password)
                 server.sendmail(frommail, to_email, msg.as_string())
         else:
-            # 使用 STARTTLS
+            # 使用 TLS 或普通连接（通常是 25 或 587）
             with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
+                if smtp_port == 587:
+                    server.starttls()  # 使用 TLS
                 server.login(smtp_user, smtp_password)
                 server.sendmail(frommail, to_email, msg.as_string())
-                
+
         print("邮件发送成功")
     except Exception as e:
         print(f"发送邮件失败: {e}")
