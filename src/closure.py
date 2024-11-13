@@ -130,9 +130,19 @@ def send_email(subject, body, attachments):
                 mime_image.add_header('Content-Disposition', 'inline', filename=image_path)
                 msg.attach(mime_image)
 
-        with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
-            server.login(smtp_user, smtp_password)
-            server.sendmail(frommail, to_email, msg.as_string())
+        # 使用不同的连接方式
+        if smtp_port == 465:
+            # 使用 SSL
+            with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+                server.login(smtp_user, smtp_password)
+                server.sendmail(frommail, to_email, msg.as_string())
+        else:
+            # 使用 STARTTLS
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(frommail, to_email, msg.as_string())
+                
         print("邮件发送成功")
     except Exception as e:
         print(f"发送邮件失败: {e}")
