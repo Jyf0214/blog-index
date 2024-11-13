@@ -110,11 +110,6 @@ def get_filtered_game_logs(logs_data):
     return "<br>".join(filtered_logs) if filtered_logs else "<br>没有符合条件的日志<br>"
 
 # 使用Lark SMTP发送邮件
-import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
 
 def send_email(subject, body, attachments):
     try:
@@ -133,7 +128,8 @@ def send_email(subject, body, attachments):
             with open(image_path, 'rb') as img:
                 mime_image = MIMEImage(img.read())
                 mime_image.add_header('Content-ID', f'<{cid}>')
-                mime_image.add_header('Content-Disposition', 'inline', filename=image_path)
+                # 使用 inline 并指定 filename，提示这是嵌入图像，同时可下载
+                mime_image.add_header('Content-Disposition', 'inline', filename=os.path.basename(image_path))
                 msg.attach(mime_image)
 
         # 判断端口并选择相应的加密方式
