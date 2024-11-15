@@ -104,7 +104,7 @@ def get_filtered_game_logs(logs_data):
 
         if any(keyword in log_content for keyword in keywords):
             filtered_logs.append(
-                f"<br>时间: {log_time}<br>日志: {log_content}（{log_name}）"
+                f"<br>时间: {log_time}<br>日志: {log_content}<br>"
             )
 
     return "<br>".join(filtered_logs) if filtered_logs else "<br>没有符合条件的日志<br>"
