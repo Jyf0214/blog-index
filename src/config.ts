@@ -54,7 +54,7 @@ const WEBSITE_SORTS: WebsiteSort[] = [
         title: "Jyf0214 Hexo Blog",
         description: "Jyf0214 的Hexo博客",
         url: "https://amiya.giize.com/",
-        icon: "/assets/logo.svg",
+        icon: "/assets/Goldenglow.svg",
       }
     ],
   },
