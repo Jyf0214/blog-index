@@ -25,7 +25,6 @@ jobs:
           PAT: ${{ secrets.PAT }}
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
-          cd veiled-journeys
 
       - name: Run scripts
         env:
@@ -37,6 +36,7 @@ jobs:
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
+          cd veiled-journeys
           python skyland.py
           python smtp.py
           python bingapi.py
