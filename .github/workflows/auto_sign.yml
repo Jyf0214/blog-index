@@ -1,0 +1,37 @@
+# run skyland.py
+name: Auto Sign
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests cryptography resend
+          git clone git@github.com:Jyf0214/veiled-journeys.git
+          cd veiled-journeys
+
+      - name: Run skyland.py
+        env:
+          GitHub_Actions: true
+          TOKEN: ${{ secrets.TOKEN }}
+          SUBJECT: ${{ secrets.SUBJECT }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          Git_EMAIL: ${{ secrets.TO_EMAIL }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          python skyland.py
+          python smtp.py
+          python bingapi.py
+          python git.py
+         
