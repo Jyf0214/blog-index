@@ -1,20 +1,30 @@
-# run skyland.py
 name: Auto Sign
+
 on:
   schedule:
-    - cron: '0 21 * * *'
-  workflow_dispatch:
+    - cron: '0 21 * * *'  # 每天 21:00 运行
+  workflow_dispatch:       # 手动触发
+
+permissions:
+  contents: write          # 设置访问仓库内容的权限
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      # 检出代码
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 设置 Python 环境
       - name: Set up Python 3.8
         uses: actions/setup-python@v4
         with:
           python-version: 3.8
 
-      - name: Install dependencies
+      # 安装依赖和克隆私有仓库
+      - name: Install dependencies and clone repository
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -23,7 +33,8 @@ jobs:
           git clone https://x-access-token:${TOKEN}@github.com/Jyf0214/veiled-journeys.git
           cd veiled-journeys
 
-      - name: Run skyland.py
+      # 运行脚本
+      - name: Run scripts
         env:
           GitHub_Actions: true
           TOKEN: ${{ secrets.TOKEN }}
@@ -33,8 +44,9 @@ jobs:
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
+          cd veiled-journeys
           python skyland.py
           python smtp.py
           python bingapi.py
           python git.py
-         
+
