@@ -25,12 +25,11 @@ jobs:
       # 安装依赖和克隆私有仓库
       - name: Install dependencies and clone repository
         env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT: ${{ secrets.PAT }}
         run: |
           python -m pip install --upgrade pip
           pip install requests cryptography resend
-          git clone https://x-access-token:${TOKEN}@github.com/Jyf0214/veiled-journeys.git
-          cd veiled-journeys
+          git clone https://<PAT>@github.com/<username>/<private-repo>.git
 
       # 运行脚本
       - name: Run scripts
