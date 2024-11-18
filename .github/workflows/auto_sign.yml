@@ -37,7 +37,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           cd veiled-journeys
-          python main.py
+          python skyland.py
           python smtp.py
           python bingapi.py
           python git.py
