@@ -41,4 +41,5 @@ jobs:
           python smtp.py
           python bingapi.py
           python git.py
-
+          python Auto-Sign/index.py
+          python Auto-Sign-2/index.py
