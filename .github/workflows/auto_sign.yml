@@ -42,12 +42,6 @@ jobs:
           python bingapi.py
           python git.py
           cd Auto-Sign
-          if [ ! -d "./packages" ]; then
-            mkdir ./packages
-            echo "Created packages directory"
-          else
-            echo "Packages directory already exists"
-          fi
-          pip install --target=./packages requests rsa pyyaml resend
+          pip install --target=./ requests rsa pyyaml resend
           zip -r code.zip .
           python sync.py
