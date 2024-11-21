@@ -26,11 +26,6 @@ jobs:
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      - name: Install dependencies in Auto-Sign folder
-        run: |
-          cd veiled-journeys/Auto-Sign
-          pip install --target=./packages requests rsa pyyaml resend
-
       - name: Run scripts
         env:
           GitHub_Actions: true
