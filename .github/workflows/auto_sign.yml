@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: 3.8
 
-      - name: Install dependencies
+      - name: Install dependencies globally
         run: |
           python -m pip install --upgrade pip
           pip install requests cryptography resend pyyaml rsa huaweicloudsdkfunctiongraph
@@ -25,6 +25,11 @@ jobs:
           PAT: ${{ secrets.PAT }}
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+
+      - name: Install dependencies in Auto-Sign folder
+        run: |
+          cd veiled-journeys/Auto-Sign
+          pip install --target=./packages requests rsa pyyaml resend
 
       - name: Run scripts
         env:
@@ -42,9 +47,12 @@ jobs:
           python bingapi.py
           python git.py
           cd Auto-Sign
+          if [ ! -d "./packages" ]; then
+            mkdir ./packages
+            echo "Created packages directory"
+          else
+            echo "Packages directory already exists"
+          fi
+          pip install --target=./packages requests rsa pyyaml resend
           zip -r code.zip .
           python sync.py
-    
-
-
-
