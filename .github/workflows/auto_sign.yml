@@ -41,7 +41,9 @@ jobs:
           python smtp.py
           python bingapi.py
           python git.py
-          
+          cd Auto-Sign
+          zip -r code.zip .
+          python sync.py
     
 
 
