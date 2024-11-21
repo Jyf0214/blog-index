@@ -42,6 +42,15 @@ jobs:
           python bingapi.py
           python git.py
           cd Auto-Sign
+
+          # 安装依赖到当前目录
           pip install --target=./ requests rsa pyyaml resend
+
+          # 删除不必要的 dist-info 文件夹
+          find . -type d -name '*dist-info' -exec rm -rf {} +
+
+          # 压缩为 code.zip
           zip -r code.zip .
+
+          # 同步代码到云函数
           python sync.py
