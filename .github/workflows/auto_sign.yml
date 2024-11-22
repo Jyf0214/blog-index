@@ -50,12 +50,6 @@ jobs:
           zip -r code.zip .
           python sync.py
 
-      - name: Clone private repository
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
-
       - name: Process Auto-Sign-2
         run: |
           cd veiled-journeys/Auto-Sign-2
