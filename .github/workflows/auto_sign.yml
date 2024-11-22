@@ -48,5 +48,6 @@ jobs:
           python sync.py
           cd 
           cd veiled-journeys/Auto-Sign-2
+          pip install --target=./ requests rsa pyyaml
           zip -r code.zip .
           python sync.py
