@@ -26,7 +26,7 @@ jobs:
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      - name: Run scripts
+      - name: Run veiled-journeys scripts
         env:
           GitHub_Actions: true
           TOKEN: ${{ secrets.TOKEN }}
@@ -41,13 +41,25 @@ jobs:
           python smtp.py
           python bingapi.py
           python git.py
-          cd Auto-Sign
-          pip install --target=./ requests rsa pyyaml resend
+
+      - name: Process Auto-Sign
+        run: |
+          cd veiled-journeys/Auto-Sign
+          pip install --target=./ requests rsa pyyaml resend  
           find . -type d -name '*dist-info' -exec rm -rf {} +
           zip -r code.zip .
           python sync.py
-          cd 
+
+      - name: Clone private repository
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+
+      - name: Process Auto-Sign-2
+        run: |
           cd veiled-journeys/Auto-Sign-2
           pip install --target=./ requests rsa pyyaml
+          find . -type d -name '*dist-info' -exec rm -rf {} +
           zip -r code.zip .
           python sync.py
