@@ -55,7 +55,8 @@ jobs:
       - name: Process Skland App and Deploy to HWAWAI FC
         run: |
           # 检查 Token.txt 文件是否存在且内容合法
-          if [ ! -f "veiled-journeys/Skland/Token.txt" ]; then
+          cd veiled-journeys/Skland
+          if [ ! -f "./Token.txt" ]; then
             echo "Error: Token.txt does not exist."
             exit 1
           fi
@@ -64,8 +65,7 @@ jobs:
             echo "Error: Token.txt contains invalid characters."
             exit 1
           fi
-      
-          cd veiled-journeys/Skland
+     
           pip install --target=./ requests cryptography
           find . -type d -name '*dist-info' -exec rm -rf {} +
           zip -r code.zip .
