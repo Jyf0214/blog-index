@@ -52,10 +52,21 @@ jobs:
           python bingapi.py
           python git.py
 
-      - name: Process Auto-Sign App and Deploy to HWAWAI FC
+      - name: Process Skland App and Deploy to HWAWAI FC
         run: |
-          cd veiled-journeys/Auto-Sign
-          pip install --target=./ requests rsa pyyaml resend  
+          # 检查 Token.txt 文件是否存在且内容合法
+          if [ ! -f "veiled-journeys/Skland/Token.txt" ]; then
+            echo "Error: Token.txt does not exist."
+            exit 1
+          fi
+          # 检查 Token.txt 文件内容是否由符号、数字和英文字母组成
+          if ! grep -Eq '^[a-zA-Z0-9!@#$%^&*()_+\-={};:"\\|,.<>\/?]+$' "veiled-journeys/Skland/Token.txt"; then
+            echo "Error: Token.txt contains invalid characters."
+            exit 1
+          fi
+      
+          cd veiled-journeys/Skland
+          pip install --target=./ requests cryptography
           find . -type d -name '*dist-info' -exec rm -rf {} +
           zip -r code.zip .
           python sync.py
