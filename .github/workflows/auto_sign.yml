@@ -42,7 +42,7 @@ jobs:
           python bingapi.py
           python git.py
 
-      - name: Process Auto-Sign
+      - name: Process Auto-Sign App and Deploy to HWAWAI FC
         run: |
           cd veiled-journeys/Auto-Sign
           pip install --target=./ requests rsa pyyaml resend  
@@ -50,7 +50,7 @@ jobs:
           zip -r code.zip .
           python sync.py
 
-      - name: Process Auto-Sign-2
+      - name: Process Auto-Sign-2 App and Deploy to HWAWAI FC
         run: |
           cd veiled-journeys/Auto-Sign-2
           pip install --target=./ requests rsa pyyaml
