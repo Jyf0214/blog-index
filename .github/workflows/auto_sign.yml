@@ -62,11 +62,6 @@ jobs:
             echo "Error: Token.txt does not exist."
             exit 1
           fi
-          # 检查 Token.txt 文件内容是否由符号、数字和英文字母组成
-          if ! grep -Eq '^[a-zA-Z0-9!@#$%^&*()_+\-={};:"\\|,.<>\/?]+$' "./Token.txt"; then
-            echo "Error: Token.txt contains invalid characters."
-            exit 1
-          fi
      
           pip install --target=./ requests cryptography
           find . -type d -name '*dist-info' -exec rm -rf {} +
