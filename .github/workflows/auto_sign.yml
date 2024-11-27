@@ -1,4 +1,4 @@
-oname: Auto Sign
+name: Auto Sign
 on:
   schedule:
     - cron: '0 21 * * *'
