@@ -58,7 +58,7 @@ jobs:
           # 检查 Token.txt 文件是否存在且内容合法
           cd veiled-journeys/Skland
           ls
-          if [ ! -f "./Token.txt" ]; then
+          if [ ! -f "./TOKEN.txt" ]; then
             echo "Error: Token.txt does not exist."
             exit 1
           fi
