@@ -35,6 +35,8 @@ jobs:
           Git_EMAIL: ${{ secrets.TO_EMAIL }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          PHONE: ${{ secrets.PHONE }}
+          PASSWORD: ${{ secrets.PASSWORD }}
         run: |
           cd veiled-journeys
           python skyland.py
