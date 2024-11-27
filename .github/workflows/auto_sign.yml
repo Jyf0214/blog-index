@@ -51,11 +51,13 @@ jobs:
           python smtp.py
           python bingapi.py
           python git.py
+          ls
 
       - name: Process Skland App and Deploy to HWAWAI FC
         run: |
           # 检查 Token.txt 文件是否存在且内容合法
           cd veiled-journeys/Skland
+          ls
           if [ ! -f "./Token.txt" ]; then
             echo "Error: Token.txt does not exist."
             exit 1
