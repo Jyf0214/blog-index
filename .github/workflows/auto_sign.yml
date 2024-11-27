@@ -63,7 +63,7 @@ jobs:
             exit 1
           fi
      
-          pip install --target=./ requests cryptography
+          pip install --target=./ requests cryptography cffi
           find . -type d -name '*dist-info' -exec rm -rf {} +
           zip -r code.zip .
           python sync.py
