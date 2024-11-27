@@ -1,4 +1,4 @@
-name: Auto Sign
+oname: Auto Sign
 on:
   schedule:
     - cron: '0 21 * * *'
@@ -29,7 +29,7 @@ jobs:
       - name: Run veiled-journeys scripts
         env:
           GitHub_Actions: true
-          TOKEN: ${{ secrets.TOKEN }}
+          TOTKEN: ${{ secrets.TOKEN }}
           SUBJECT: ${{ secrets.SUBJECT }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
           Git_EMAIL: ${{ secrets.TO_EMAIL }}
