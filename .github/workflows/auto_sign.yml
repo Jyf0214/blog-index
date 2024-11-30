@@ -53,6 +53,14 @@ jobs:
           python git.py
           ls
 
+      - name: Process Auto-Sign App and Deploy to HWAWAI FC
+        run: |
+          cd veiled-journeys/Auto-Sign
+          pip install --target=./ requests rsa pyyaml resend
+          find . -type d -name '*dist-info' -exec rm -rf {} +
+          zip -r code.zip .
+          python sync.py
+
       - name: Process Skland App and Deploy to HWAWAI FC
         run: |
           # 检查 Token.txt 文件是否存在且内容合法
