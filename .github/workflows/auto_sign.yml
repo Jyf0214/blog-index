@@ -54,11 +54,6 @@ jobs:
           python smtp.py
           python bingapi.py
           python git.py
-          python webdav_download.py
-          ls
-          python iloveapi_img_plus.py
-          ls
-          python webdav_upload.py
           ls
 
       - name: Process Auto-Sign App and Deploy to HWAWAI FC
