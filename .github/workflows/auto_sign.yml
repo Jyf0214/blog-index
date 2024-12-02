@@ -2,6 +2,9 @@ name: Auto Sign
 on:
   schedule:
     - cron: '0 21 * * *'
+  push:
+    branches:
+      - main  # 在 main 分支推送时触发
   workflow_dispatch:
 
 jobs:
@@ -52,7 +55,9 @@ jobs:
           python bingapi.py
           python git.py
           python webdav_download.py
+          ls
           python iloveapi_img_plus.py
+          ls
           python webdav_upload.py
           ls
 
