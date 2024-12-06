@@ -38,3 +38,4 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./dist  # Vite 默认构建输出目录
         cname: jyf20100214.giize.com
+
