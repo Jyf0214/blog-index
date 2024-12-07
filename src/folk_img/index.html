@@ -197,11 +197,6 @@
   </div>
 </div>
 
-  </div>
-</div>
-
-  </div>
-</div>
 <div class="container">
   <h2>图片裁剪工具</h2>
   <div class="hanger-container">
@@ -222,13 +217,51 @@
   <button id="downloadButton" class="btn">裁剪并下载</button>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
 <script>
   const hamburger = document.getElementById('hamburger');
   const menu = document.getElementById('menu');
   const closeMenu = document.getElementById('closeMenu');
+  const inputImage = document.getElementById('inputImage');
+  const imageElement = document.getElementById('image');
+  const downloadButton = document.getElementById('downloadButton');
+  let cropper;
 
   hamburger.addEventListener('click', () => menu.classList.add('open'));
   closeMenu.addEventListener('click', () => menu.classList.remove('open'));
+
+  inputImage.addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (file && file.type.startsWith('image')) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        imageElement.src = e.target.result;
+        imageElement.onload = () => {
+          if (cropper) {
+            cropper.destroy();
+          }
+          cropper = new Cropper(imageElement, {
+            aspectRatio: 1, // 方形裁剪
+            viewMode: 1,
+            preview: '.preview',
+          });
+          downloadButton.classList.add('enabled');
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  downloadButton.addEventListener('click', function() {
+    if (cropper) {
+      const croppedCanvas = cropper.getCroppedCanvas();
+      const dataUrl = croppedCanvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = 'cropped-image.png';
+      a.click();
+    }
+  });
 </script>
 </body>
 </html>
