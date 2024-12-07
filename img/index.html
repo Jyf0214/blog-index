@@ -202,13 +202,22 @@
   <div class="hanger-container">
     <div id="hanger"></div>
     <label for="inputImage">选择文件</label>
-    <input type="file" id="inputImage" accept="image/*">
+    <input type="file" id="inputImage" accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/webp">
   </div>
   <div class="form-group">
     <label for="cropType">裁剪类型:</label>
     <select id="cropType" class="form-control">
       <option value="square">方形</option>
       <option value="circle">圆形</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label for="outputFormat">输出格式:</label>
+    <select id="outputFormat" class="form-control">
+      <option value="image/png">PNG</option>
+      <option value="image/jpeg">JPEG</option>
+      <option value="image/webp">WEBP</option>
+      <option value="image/svg+xml">SVG</option>
     </select>
   </div>
   <div class="cropper-container">
@@ -225,6 +234,7 @@
   const inputImage = document.getElementById('inputImage');
   const imageElement = document.getElementById('image');
   const downloadButton = document.getElementById('downloadButton');
+  const outputFormat = document.getElementById('outputFormat');
   let cropper;
 
   hamburger.addEventListener('click', () => menu.classList.add('open'));
@@ -255,10 +265,11 @@
   downloadButton.addEventListener('click', function() {
     if (cropper) {
       const croppedCanvas = cropper.getCroppedCanvas();
-      const dataUrl = croppedCanvas.toDataURL('image/png');
+      const format = outputFormat.value;
+      const dataUrl = croppedCanvas.toDataURL(format);
       const a = document.createElement('a');
       a.href = dataUrl;
-      a.download = 'cropped-image.png';
+      a.download = `cropped-image.${format.split('/')[1]}`;
       a.click();
     }
   });
