@@ -1,1 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图片裁剪工具</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css"/>
+<style>
+  body {
+    font-family: 'Arial', sans-serif;
+    background: url('https://img0.baidu.com/it/u=3556520360,4145506087&fm=253&fmt=auto&app=120&f=JPEG') no-repeat center center fixed;
+    background-size: cover;
+    color: #333;
+    margin: 0;
+    padding: 0;
+  }
 
+  .container {
+    max-width: 800px;
+    margin: 100px auto;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  }
+
+  #image {
+    max-width: 100%;
+    height: auto;
+    margin-top: 20px;
+    border-radius: 15px;
+    border: 2px solid #dee2e6;
+  }
+
+  .hanger-container {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 20px;
+  }
+
+  #hanger {
+    position: absolute;
+    top: -60px;
+    right: 0;
+    transform: translate(50%, -50%);
+    width: 50px;
+    height: 50px;
+    background-image: url('https://img0.baidu.com/it/u=1493605038,3430077055&fm=253&fmt=auto&app=120&f=JPEG');
+    background-size: contain;
+    background-repeat: no-repeat;
+  }
+
+  #inputImage {
+    display: none;
+  }
+
+  label[for="inputImage"] {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: inline-block;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+  }
+
+  label[for="inputImage"]:hover {
+    background-color: #0056b3;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  select {
+    border-radius: 5px;
+    padding: 8px 10px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    background-color: #6c757d; /* 默认灰色 */
+    color: white;
+    cursor: not-allowed;
+    transition: background-color 0.3s ease;
+    margin-top: 20px; /* 增加与图片的间距 */
+  }
+
+  .btn.enabled {
+    background-color: #28a745;
+    cursor: pointer;
+  }
+
+  .btn.enabled:hover {
+    background-color: #218838;
+  }
+
+  /* 汉堡菜单样式 */
+  .hamburger {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    background: #007bff;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+
+  .hamburger svg {
+    width: 20px;
+    height: 20px;
+    fill: white;
+  }
+
+  .menu {
+    position: fixed;
+    top: 0;
+    left: -300px; /* 菜单完全隐藏 */
+    width: 250px;
+    height: 100%;
+    background-color: #ffffff;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
+    transition: 0.3s ease-in-out;
+    z-index: 999;
+    padding: 20px;
+  }
+
+  .menu.open {
+    left: 0; /* 滑入视窗 */
+  }
+
+  .menu a {
+    display: block;
+    margin: 15px 0;
+    text-decoration: none;
+    color: #007bff;
+    font-weight: bold;
+  }
+
+  .menu a:hover {
+    color: #0056b3;
+  }
+
+  .menu .profile {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+  }
+
+  .menu .profile img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+  }
+
+  .close-menu {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .close-menu:hover {
+    color: red;
+  }
+</style>
+</head>
+<body>
+<div class="hamburger" id="hamburger">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+    <path d="M3 5h14a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2zm14 4H3a1 1 0 1 0 0 2h14a1 1 0 1 0 0-2zm0 6H3a1 1 0 1 0 0 2h14a1 1 0 1 0 0-2z"/>
+  </svg>
+</div>
+<div class="menu" id="menu">
+  <span class="close-menu" id="closeMenu">&times;</span>
+  <a href="https://example.com" target="_blank">示例按钮1</a>
+  <a href="https://example2.com" target="_blank">示例按钮2</a>
+  <div class="profile">
+    <img src="https://img0.baidu.com/it/u=1493605038,3430077055&fm=253&fmt=auto&app=120&f=JPEG" alt="头像">
+    <p>您的姓名</p>
+  </div>
+</div>
+<div class="container">
+  <h2>图片裁剪工具</h2>
+  <div class="hanger-container">
+    <div id="hanger"></div>
+    <label for="inputImage">选择文件</label>
+    <input type="file" id="inputImage" accept="image/*">
+  </div>
+  <div class="form-group">
+    <label for="cropType">裁剪类型:</label>
+    <select id="cropType" class="form-control">
+      <option value="square">方形</option>
+      <option value="circle">圆形</option>
+    </select>
+  </div>
+  <div class="cropper-container">
+    <img id="image" src="" class="img-fluid">
+  </div>
+  <button id="downloadButton" class="btn">裁剪并下载</button>
+</div>
+
+<script>
+  const hamburger = document.getElementById('hamburger');
+  const menu = document.getElementById('menu');
+  const closeMenu = document.getElementById('closeMenu');
+
+  hamburger.addEventListener('click', () => menu.classList.add('open'));
+  closeMenu.addEventListener('click', () => menu.classList.remove('open'));
+</script>
+</body>
+</html>
