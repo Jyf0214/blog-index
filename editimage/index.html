@@ -261,13 +261,29 @@
 
   downloadButton.addEventListener('click', function() {
     if (cropper) {
-      const croppedCanvas = cropper.getCroppedCanvas();
       const format = outputFormat.value;
-      const dataUrl = croppedCanvas.toDataURL(format);
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `cropped-image.${format.split('/')[1]}`;
-      a.click();
+      if (format === 'image/svg') {
+        const croppedCanvas = cropper.getCroppedCanvas();
+        const dataUrl = croppedCanvas.toDataURL('image/png');
+        const imageBase64 = dataUrl.split(',')[1];
+        const svgTemplate = `
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${croppedCanvas.width} ${croppedCanvas.height}">
+            <image href="data:image/png;base64,${imageBase64}" x="0" y="0" width="100%" height="100%" />
+          </svg>
+        `;
+        const blob = new Blob([svgTemplate], { type: 'image/svg+xml' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'cropped-image.svg';
+        a.click();
+      } else {
+        const croppedCanvas = cropper.getCroppedCanvas();
+        const dataUrl = croppedCanvas.toDataURL(format);
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `cropped-image.${format.split('/')[1]}`;
+        a.click();
+      }
     }
   });
 </script>
