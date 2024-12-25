@@ -19,7 +19,7 @@ jobs:
       TOEMAIL: ${{ secrets.TOEMAIL }}
       MAIL_SUBJECT: ${{ secrets.MAIL_SUBJECT }}
       ACCOUNTS: ${{ secrets.ACCOUNTS }}
-      FROMMAIL: ${{ secrets.FROMMAIL }}
+      FROMMAIL: ${{ secrets.FROM_EMAIL }}
       # 如果有其他需要的环境变量，可以继续在这里添加
 
     steps:
