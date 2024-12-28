@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies globally
         run: |
           python -m pip install --upgrade pip
-          pip install requests cryptography resend pyyaml rsa huaweicloudsdkfunctiongraph pillow
+          pip install requests cryptography resend pyyaml rsa huaweicloudsdkfunctiongraph pillow pyppeteer ffmpeg-python 
 
       - name: Clone private repository
         env:
