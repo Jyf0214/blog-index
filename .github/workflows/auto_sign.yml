@@ -25,6 +25,7 @@ jobs:
 
       - name: Install dependencies globally
         run: |
+          sudo apt-get install -y ffmpeg xvfb
           python -m pip install --upgrade pip
           pip install requests cryptography resend pyyaml rsa huaweicloudsdkfunctiongraph pillow pyppeteer ffmpeg-python 
 
