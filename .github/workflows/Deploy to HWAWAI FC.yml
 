@@ -28,27 +28,13 @@ jobs:
           PAT: ${{ secrets.PAT }}
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+          pip install huaweicloudsdkfunctiongraph huaweicloudsdkcore
 
 
       - name: Process Auto-Sign App and Deploy to HWAWAI FC
         run: |
           cd veiled-journeys/Auto-Sign
           pip install --target=./ requests rsa pyyaml resend
-          find . -type d -name '*dist-info' -exec rm -rf {} +
-          zip -r code.zip .
-          python sync.py
-
-      - name: Process Skland App and Deploy to HWAWAI FC
-        run: |
-          # 检查 Token.txt 文件是否存在且内容合法
-          cd veiled-journeys/Skland
-          ls
-          if [ ! -f "./TOKEN.txt" ]; then
-            echo "Error: Token.txt does not exist."
-            exit 1
-          fi
-     
-          pip install --target=./ requests cryptography cffi
           find . -type d -name '*dist-info' -exec rm -rf {} +
           zip -r code.zip .
           python sync.py
