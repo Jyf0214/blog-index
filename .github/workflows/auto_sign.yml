@@ -51,31 +51,17 @@ jobs:
           python bingapi.py
           python git.py
 
-      - name: Process Skland App and Deploy to HUAWEI FC
+      - name: Process Skland App and Deploy to HWAWAI FC
         run: |
-          # 进入目标目录
+          # 检查 Token.txt 文件是否存在且内容合法
           cd veiled-journeys/Skland
-
-          # 列出当前目录的文件以便调试
           ls
-
-          # 检查 TOKEN.txt 文件是否存在
           if [ ! -f "./TOKEN.txt" ]; then
-            echo "Error: TOKEN.txt does not exist."
+            echo "Error: Token.txt does not exist."
             exit 1
           fi
-
-          # 验证 TOKEN.txt 文件内容是否为空
-          if [ ! -s "./TOKEN.txt" ]; then
-            echo "Error: TOKEN.txt is empty."
-            exit 1
-          fi
-
-          # 验证 TOKEN.txt 文件内容格式（示例：检查是否为 Base64 编码）
-          if ! grep -qE '^[A-Za-z0-9+/=]+$' "./TOKEN.txt"; then
-            echo "Error: TOKEN.txt contains invalid characters."
-            exit 1
-          fi
-
-          # 内容合法，执行 Python 脚本
+     
+          pip install --target=./ requests cryptography cffi
+          find . -type d -name '*dist-info' -exec rm -rf {} +
+          zip -r code.zip .
           python sync.py
