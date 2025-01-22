@@ -1,0 +1,48 @@
+name: Deploy to HWAWAI FC
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Clone private repository
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+          pip install huaweicloudsdkfunctiongraph huaweicloudsdkcore
+
+
+      - name: Process Auto-Sign App and Deploy to HWAWAI FC
+        run: |
+          cd veiled-journeys/Auto-Sign
+          pip install --target=./ requests rsa pyyaml resend
+          find . -type d -name '*dist-info' -exec rm -rf {} +
+          zip -r code.zip .
+          python sync.py
+
+      - name: Process Auto-Sign-2 App and Deploy to HWAWAI FC
+        run: |
+          cd veiled-journeys/Auto-Sign-2
+          pip install --target=./ requests rsa pyyaml
+          find . -type d -name '*dist-info' -exec rm -rf {} +
+          zip -r code.zip .
+          python sync.py
