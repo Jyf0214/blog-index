@@ -1,7 +1,9 @@
-name: Deploy to HWAWAI FC
+name: Deploy to HUAWEI FC
+
 on:
-  schedule:
-    - cron: '0 21 * * *'
+  repository_dispatch:
+    types:
+      - trigger_from_veiled_journeys  # 监听来自 veiled-journeys 的自定义事件
   workflow_dispatch:
 
 jobs:
