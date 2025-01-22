@@ -23,15 +23,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install dependencies globally
-        run: |
-          pip install -r requirements.txt
-
       - name: Clone private repository
         env:
           PAT: ${{ secrets.PAT }}
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+
+      - name: Install dependencies globally
+        run: |
+          pip install -r veiled-journeys/requirements.txt
 
       - name: Run veiled-journeys scripts
         env:
