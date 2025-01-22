@@ -25,9 +25,7 @@ jobs:
 
       - name: Install dependencies globally
         run: |
-          sudo apt-get install -y ffmpeg xvfb
-          python -m pip install --upgrade pip
-          pip install requests cryptography resend pyyaml rsa huaweicloudsdkfunctiongraph pillow pyppeteer ffmpeg-python 
+          pip install -r requirements.txt
 
       - name: Clone private repository
         env:
@@ -53,14 +51,6 @@ jobs:
           python bingapi.py
           python git.py
 
-      - name: Process Auto-Sign App and Deploy to HWAWAI FC
-        run: |
-          cd veiled-journeys/Auto-Sign
-          pip install --target=./ requests rsa pyyaml resend
-          find . -type d -name '*dist-info' -exec rm -rf {} +
-          zip -r code.zip .
-          python sync.py
-
       - name: Process Skland App and Deploy to HWAWAI FC
         run: |
           # 检查 Token.txt 文件是否存在且内容合法
@@ -70,16 +60,4 @@ jobs:
             echo "Error: Token.txt does not exist."
             exit 1
           fi
-     
-          pip install --target=./ requests cryptography cffi
-          find . -type d -name '*dist-info' -exec rm -rf {} +
-          zip -r code.zip .
-          python sync.py
 
-      - name: Process Auto-Sign-2 App and Deploy to HWAWAI FC
-        run: |
-          cd veiled-journeys/Auto-Sign-2
-          pip install --target=./ requests rsa pyyaml
-          find . -type d -name '*dist-info' -exec rm -rf {} +
-          zip -r code.zip .
-          python sync.py
