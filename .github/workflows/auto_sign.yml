@@ -89,7 +89,7 @@ jobs:
         id: check_dependabot
         run: |
           # 获取PR的作者信息
-          PR_AUTHOR=$(jq -r '.user.login' < "${{ github.event.pull_request.head.repo.owner.login }}")
+          PR_AUTHOR=$(jq -r '.pull_request.user.login' <<< "${{ toJSON(github.event) }}")
           echo "PR_AUTHOR=${PR_AUTHOR}" >> $GITHUB_ENV
 
       - name: Check PR status and merge/close
