@@ -1,46 +1,40 @@
-name: Dependabot PR Auto-Merge
+name: Deploy to GitHub Pages
 
 on:
-  # 监听PR事件
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
+  push:
+    branches:
+      - main  # 在 main 分支推送时触发
 
 jobs:
-  auto-merge-dependabot-pr:
+  build-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Check if PR is from Dependabot
-        id: check_dependabot
-        run: |
-          # 获取PR的作者信息
-          PR_AUTHOR=$(jq -r '.user.login' < "${{ github.event.pull_request.head.repo.owner.login }}")
-          echo "PR_AUTHOR=${PR_AUTHOR}" >> $GITHUB_ENV
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'  # 项目使用的 Node.js 版本，可根据需要调整
 
-      - name: Check PR status and merge/close
-        run: |
-          # 检查PR是否由Dependabot创建
-          if [[ "${{ env.PR_AUTHOR }}" == "dependabot[bot]" ]]; then
-            # 获取PR的状态
-            PR_STATUS=$(gh pr view ${{ github.event.pull_request.number }} --json statusCheckRollup --jq '.statusCheckRollup.state')
-            echo "PR status: ${PR_STATUS}"
+    - name: Cache Node modules
+      uses: actions/cache@v3
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
 
-            # 根据状态决定合并或关闭
-            if [[ "${PR_STATUS}" == "EXPECTED" ]]; then
-              echo "PR passed all checks. Merging..."
-              gh pr merge ${{ github.event.pull_request.number }} --auto --squash --merge
-            else
-              echo "PR failed checks. Closing..."
-              gh pr close ${{ github.event.pull_request.number }} --comment "This PR failed checks and is being closed automatically."
-            fi
-          else
-            echo "PR is not from Dependabot. Skipping."
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Install dependencies
+      run: yarn install  # 使用 Yarn 安装依赖
+
+    - name: Build project
+      run: yarn build  # Vite 默认构建命令
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dist  # Vite 默认构建输出目录
+        cname: jyf20100214.giize.com
