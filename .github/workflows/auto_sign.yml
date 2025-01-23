@@ -1,11 +1,22 @@
-name: Auto Sign
+name: Combined Workflow
+
 on:
+  # 定时任务触发
   schedule:
     - cron: '0 21 * * *'
+  # 手动触发
   workflow_dispatch:
+  # PR事件触发（用于Dependabot PR处理）
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
 
 jobs:
-  build:
+  # 自动测试作业
+  auto-sign:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -65,3 +76,40 @@ jobs:
           find . -type d -name '*dist-info' -exec rm -rf {} +
           zip -r code.zip .
           python sync.py
+
+  # Dependabot PR自动合并作业
+  dependabot-merge:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if PR is from Dependabot
+        id: check_dependabot
+        run: |
+          # 获取PR的作者信息
+          PR_AUTHOR=$(jq -r '.user.login' < "${{ github.event.pull_request.head.repo.owner.login }}")
+          echo "PR_AUTHOR=${PR_AUTHOR}" >> $GITHUB_ENV
+
+      - name: Check PR status and merge/close
+        run: |
+          # 检查PR是否由Dependabot创建
+          if [[ "${{ env.PR_AUTHOR }}" == "dependabot[bot]" ]]; then
+            # 获取PR的状态
+            PR_STATUS=$(gh pr view ${{ github.event.pull_request.number }} --json statusCheckRollup --jq '.statusCheckRollup.state')
+            echo "PR status: ${PR_STATUS}"
+
+            # 根据状态决定合并或关闭
+            if [[ "${PR_STATUS}" == "EXPECTED" ]]; then
+              echo "PR passed all checks. Merging..."
+              gh pr merge ${{ github.event.pull_request.number }} --auto --squash --merge
+            else
+              echo "PR failed checks. Closing..."
+              gh pr close ${{ github.event.pull_request.number }} --comment "This PR failed checks and is being closed automatically."
+            fi
+          else
+            echo "PR is not from Dependabot. Skipping."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
