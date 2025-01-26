@@ -1,4 +1,4 @@
-name: Dependabot-merge and Auto-sign
+name: Auto-sign
 
 on:
   # 定时任务触发
