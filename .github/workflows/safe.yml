@@ -43,8 +43,8 @@ jobs:
       - name: Process Video 
         run: |
           cd veiled-journeys
-          ffmpeg -i input.mp4 -vf "scale=1080:-2" -c:v libx264 -crf 3 -preset veryslow -threads 16 output.mp4
-
+          chmod +x compress.sh
+          ./compress.sh
 
       - name: Upload Compressed to Web
         run: |
