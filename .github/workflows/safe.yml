@@ -48,6 +48,7 @@ jobs:
 
       - name: Upload Compressed to Web
         run: |
+          cd veiled-journeys
           python 4.py
 
 
