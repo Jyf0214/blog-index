@@ -1,9 +1,6 @@
 name: Auto-sign
 
 on:
-  push:
-    branches:
-      - main  # 在 main 分支推送时触发
   workflow_dispatch:
 
 jobs:
@@ -35,36 +32,22 @@ jobs:
       - name: Install dependencies globally
         run: |
           pip install -r veiled-journeys/requirements.txt
-
-      - name: Run veiled-journeys scripts
-        env:
-          GitHub_Actions: true
-          TOTKEN: ${{ secrets.TOKEN }}
-          SUBJECT: ${{ secrets.SUBJECT }}
-          TO_EMAIL: ${{ secrets.TO_EMAIL }}
-          Git_EMAIL: ${{ secrets.TO_EMAIL }}
-          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          PHONE: ${{ secrets.PHONE }}
-          PASSWORD: ${{ secrets.PASSWORD }}
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg 
+          
+      - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
-          python skyland.py
-          python smtp.py
-          python bingapi.py
-          python git.py
+          python 3.py
 
-      - name: Process Skland App and Deploy to HWAWAI FC
+      - name: Process Video 
         run: |
-          # 检查 Token.txt 文件是否存在且内容合法
-          cd veiled-journeys/Skland
-          ls
-          if [ ! -f "./TOKEN.txt" ]; then
-            echo "Error: Token.txt does not exist."
-            exit 1
-          fi
-     
-          pip install --target=./ requests cryptography cffi
-          find . -type d -name '*dist-info' -exec rm -rf {} +
-          zip -r code.zip .
-          python sync.py
+          cd veiled-journeys
+          ffmpeg -i input.mp4 -vf "scale=1920:-2" -c:v libx264 -crf 3 -preset veryslow -threads 16 output.mp4
+
+
+      - name: Upload Compressed to Web
+        run: |
+          python 4.py
+
+
