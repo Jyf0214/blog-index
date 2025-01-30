@@ -1,20 +1,54 @@
-name: Jekyll site CI
+name: Web Auto Compress
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  build:
-
+  # 自动测试作业
+  auto-sign:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Build the site in the jekyll/builder container
-      run: |
-        docker run \
-        -v ${{ github.workspace }}:/srv/jekyll -v ${{ github.workspace }}/_site:/srv/jekyll/_site \
-        jekyll/builder:latest /bin/bash -c "chmod -R 777 /srv/jekyll && jekyll build --future"
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Clone private repository
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+
+      - name: Install dependencies globally
+        run: |
+          pip install -r veiled-journeys/requirements.txt
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg 
+          
+      - name: Test veiled-journeys App
+        run: |
+          cd veiled-journeys
+          python 3.py
+
+      - name: Process Video 
+        run: |
+          cd veiled-journeys
+          chmod +x compress.sh
+          ./compress.sh
+
+      - name: Upload Compressed to Web
+        run: |
+          cd veiled-journeys
+          python 4.py
+
+
