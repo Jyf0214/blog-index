@@ -1,0 +1,72 @@
+name: Auto-sign
+
+on:
+  # 定时任务触发
+  schedule:
+    - cron: '0 21 * * *'
+  # 手动触发
+  workflow_dispatch:
+
+jobs:
+  # 自动测试作业
+  auto-sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Clone private repository
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+
+      - name: Install dependencies globally
+        run: |
+          pip install -r veiled-journeys/requirements.txt
+
+      - name: Run veiled-journeys scripts
+        env:
+          GitHub_Actions: true
+          TOTKEN: ${{ secrets.TOKEN }}
+          SUBJECT: ${{ secrets.SUBJECT }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          Git_EMAIL: ${{ secrets.TO_EMAIL }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          PHONE: ${{ secrets.PHONE }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+        run: |
+          cd veiled-journeys
+          python skyland.py
+          python smtp.py
+          python bingapi.py
+          python git.py
+
+      - name: Process Skland App and Deploy to HWAWAI FC
+        run: |
+          # 检查 Token.txt 文件是否存在且内容合法
+          cd veiled-journeys/Skland
+          ls
+          if [ ! -f "./TOKEN.txt" ]; then
+            echo "Error: Token.txt does not exist."
+            exit 1
+          fi
+     
+          pip install --target=./ requests cryptography cffi
+          find . -type d -name '*dist-info' -exec rm -rf {} +
+          zip -r code.zip .
+          python sync.py
+
