@@ -38,7 +38,7 @@ jobs:
       - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
-          python 5.py
+          python 3.py
 
       - name: Process Video 
         run: |
