@@ -5,7 +5,7 @@ on:
 
 jobs:
   auto-sign:
-    runs-on: ubuntu-22.04  # 指定运行环境为 Ubuntu 22.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -36,8 +36,8 @@ jobs:
 
       - name: Install MEGAcmd (using precompiled binaries)
         run: |
-          wget https://mega.nz/linux/MEGAsync/xUbuntu_22.04/amd64/megacmd-xUbuntu_22.04_amd64.deb
-          sudo dpkg -i megacmd-xUbuntu_22.04_amd64.deb
+          wget https://mega.nz/linux/repo/xUbuntu_22.04/amd64/megacmd_1.7.0-3.1_amd64.deb
+          sudo dpkg -i megacmd_1.7.0-3.1_amd64.deb
 
       - name: Test veiled-journeys App
         run: |
