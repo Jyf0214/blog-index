@@ -31,7 +31,6 @@ jobs:
       - name: Install dependencies and megatools
         run: |
           pip install -r veiled-journeys/requirements.txt
-          sudo apt-get update
           sudo apt-get install -y ffmpeg megatools
 
       - name: Test veiled-journeys App
