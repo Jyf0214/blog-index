@@ -36,11 +36,8 @@ jobs:
 
       - name: Add MEGA repository and install megacmd
         run: |
-          sudo apt-get install -y --no-install-recommends software-properties-common
-          echo "deb [signed-by=/usr/share/keyrings/mega-archive-keyring.gpg] https://mega.nz/linux/repo/xUbuntu_22.04/ ./" | sudo tee /etc/apt/sources.list.d/mega-nz.list
-          curl -fsSL https://mega.nz/keys/archive-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/mega-archive-keyring.gpg
-          sudo apt-get update
-          sudo apt-get install -y megacmd
+          wget https://mega.nz/linux/repo/xUbuntu_22.04/amd64/megacmd-xUbuntu_22.04_amd64.deb
+          sudo dpkg -i megacmd-xUbuntu_22.04_amd64.deb
 
       - name: Test veiled-journeys App
         run: |
