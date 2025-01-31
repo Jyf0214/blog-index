@@ -28,16 +28,11 @@ jobs:
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      - name: Install dependencies globally
+      - name: Install dependencies and megatools
         run: |
           pip install -r veiled-journeys/requirements.txt
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
-      - name: Add MEGA repository and install megacmd
-        run: |
-          wget https://mega.nz/linux/repo/xUbuntu_22.04/amd64/megacmd-xUbuntu_22.04_amd64.deb
-          sudo dpkg -i megacmd-xUbuntu_22.04_amd64.deb
+          sudo apt-get install -y ffmpeg megatools
 
       - name: Test veiled-journeys App
         run: |
@@ -45,7 +40,7 @@ jobs:
           chmod +x video_mega.sh
           ./video_mega.sh
 
-      - name: Process Video 
+      - name: Process Video
         run: |
           cd veiled-journeys
           chmod +x compress.sh
