@@ -4,9 +4,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 自动测试作业
   auto-sign:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # 指定运行环境为 Ubuntu 22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -33,9 +32,13 @@ jobs:
         run: |
           pip install -r veiled-journeys/requirements.txt
           sudo apt-get update
-          sudo apt-get install -y ffmpeg 
-          sudo snap install mega-cmd
-          
+          sudo apt-get install -y ffmpeg
+
+      - name: Install MEGAcmd (using precompiled binaries)
+        run: |
+          wget https://mega.nz/linux/MEGAsync/xUbuntu_22.04/amd64/megacmd-xUbuntu_22.04_amd64.deb
+          sudo dpkg -i megacmd-xUbuntu_22.04_amd64.deb
+
       - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
