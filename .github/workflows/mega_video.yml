@@ -39,7 +39,8 @@ jobs:
       - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
-          python 5.py
+          chmod +x video_mega.sh
+          ./video_mega.sh
 
       - name: Process Video 
         run: |
