@@ -32,7 +32,7 @@ jobs:
       - name: Install dependencies globally
         run: |
           pip install -r veiled-journeys/requirements.txt
-          apt-get update
+          sudo apt-get update
           sudo apt-get install -y ffmpeg 
           
       - name: Test veiled-journeys App
