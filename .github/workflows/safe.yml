@@ -15,6 +15,14 @@ jobs:
         with:
           python-version: 3.9
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install pm2 globally
+        run: npm install -g pm2
+
       - name: Cache pip dependencies
         uses: actions/cache@v3
         with:
@@ -34,7 +42,7 @@ jobs:
           pip install -r veiled-journeys/requirements.txt
           sudo apt-get update
           sudo apt-get install -y ffmpeg 
-          
+
       - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
@@ -50,5 +58,3 @@ jobs:
         run: |
           cd veiled-journeys
           python 4.py
-
-
