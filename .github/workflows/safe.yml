@@ -51,12 +51,11 @@ jobs:
       - name: Process Video 
         run: |
           cd veiled-journeys
-          pm2 start "python iloveapi_img_plus.py" --name "img-python-app"
+          python iloveapi_img_plus.py
           chmod +x compress.sh
           ./compress.sh
 
       - name: Upload Compressed to Web
-        id: upload_step # Add an ID so we can check results later
         run: |
           cd veiled-journeys
           python 4.py
@@ -64,14 +63,5 @@ jobs:
       - name: Check for finished.task and Run 4_img.py
         if: success()  # Only run if the previous step was successful
         run: |
-          cd veiled-journeys
-          while true; do
-            if [ -f finished.task ]; then
-              echo "finished.task found! Running 4_img.py..."
-              python 4_img.py
-              break  # 找到文件后退出循环
-            else
-              echo "finished.task not found. Waiting..."
-              sleep 5  # 等待一段时间（例如5秒）后再次检查
-            fi
-          done
+          python 4_img.py
+              
