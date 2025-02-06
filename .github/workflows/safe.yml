@@ -61,7 +61,6 @@ jobs:
           python 4.py
 
       - name: Check for finished.task and Run 4_img.py
-        if: success()  # Only run if the previous step was successful
         run: |
           python 4_img.py
               
