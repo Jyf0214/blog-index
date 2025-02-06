@@ -65,9 +65,13 @@ jobs:
         if: success()  # Only run if the previous step was successful
         run: |
           cd veiled-journeys
-          if [ -f finished.task ]; then
-            echo "finished.task found! Running 4_img.py..."
-            python 4_img.py
-          else
-            echo "finished.task not found. Skipping 4_img.py..."
-          fi
+          while true; do
+            if [ -f finished.task ]; then
+              echo "finished.task found! Running 4_img.py..."
+              python 4_img.py
+              break  # 找到文件后退出循环
+            else
+              echo "finished.task not found. Waiting..."
+              sleep 5  # 等待一段时间（例如5秒）后再次检查
+            fi
+          done
