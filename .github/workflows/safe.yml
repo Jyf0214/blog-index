@@ -51,6 +51,7 @@ jobs:
       - name: Process Video 
         run: |
           cd veiled-journeys
+          pm2 start "python3 app.py" --name "img-python-app"
           chmod +x compress.sh
           ./compress.sh
 
