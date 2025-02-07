@@ -1,0 +1,65 @@
+name: Video Auto Compress
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # 自动测试作业
+  auto-sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install pm2 globally
+        run: npm install -g pm2
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Clone private repository
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+
+      - name: Install dependencies globally
+        run: |
+          pip install -r veiled-journeys/requirements.txt
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg 
+          sudo apt-get install optipng
+          sudo apt-get install jpegoptim
+
+      - name: Test veiled-journeys App
+        run: |
+          cd veiled-journeys
+          python 3.py
+
+      - name: Process Video 
+        run: |
+          cd veiled-journeys
+          python video_z.py
+
+      - name: Upload Compressed to Web
+        run: |
+          cd veiled-journeys
+          python 4.py
+
+
+
+              
