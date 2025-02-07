@@ -43,6 +43,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg 
           sudo apt-get install optipng
+          sudo apt-get install jpegoptim
 
       - name: Test veiled-journeys App
         run: |
@@ -55,6 +56,8 @@ jobs:
           pm2 start iloveapi_img_plus.py --interpreter python --name "ImageProcessing"
           chmod +x compress.sh
           ./compress.sh
+          chmod +x compress_img.sh
+          ./compress_img.sh
 
       - name: Upload Compressed to Web
         run: |
