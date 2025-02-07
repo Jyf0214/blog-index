@@ -42,6 +42,7 @@ jobs:
           pip install -r veiled-journeys/requirements.txt
           sudo apt-get update
           sudo apt-get install -y ffmpeg 
+          sudo apt-get install optipng
 
       - name: Test veiled-journeys App
         run: |
