@@ -1,4 +1,4 @@
-name: Web Auto Compress
+name: Img Auto Compress
 
 on:
   push:
