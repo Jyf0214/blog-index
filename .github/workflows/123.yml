@@ -2,8 +2,8 @@ name: Img Auto Compress
 
 on:
   push:
-    branches:
-      - main  # 在 main 分支推送时触发
+    paths:
+      - 'data.txt'
   workflow_dispatch:
 
 jobs:
