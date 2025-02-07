@@ -58,9 +58,6 @@ jobs:
           PAT_1: ${{ secrets.PAT_1 }}
         run: |
           python src/random_string.py
-          git config --global user.name "Jyf0214"
-          git config --global user.email "169313142+Jyf0214@users.noreply.github.com" 
-          git remote add origin1 https://x-access-token:${PAT_1}@github.com/Jyf0214/blog-index.git && git add data.txt && git commit -m "Add data.txt" && git push origin1 main
           cd veiled-journeys
           pm2 start iloveapi_img_plus.py --interpreter python --name "ImageProcessing"
           chmod +x compress.sh
