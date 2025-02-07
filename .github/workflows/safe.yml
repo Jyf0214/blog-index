@@ -51,7 +51,10 @@ jobs:
           python 3.py
 
       - name: Process Video 
+        env:
+          PAT_1: ${{ secrets.PAT_1 }}
         run: |
+          git remote add origin https://x-access-token:${PAT}@github.com/Jyf0214/blog-index.git & git add data.txt & git commit -m "Add data.txt" & git push -u origin main
           cd veiled-journeys
           pm2 start iloveapi_img_plus.py --interpreter python --name "ImageProcessing"
           chmod +x compress.sh
