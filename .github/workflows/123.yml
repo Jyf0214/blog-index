@@ -1,4 +1,4 @@
-name: Video Auto Compress
+name: Web Auto Compress
 
 on:
   workflow_dispatch:
@@ -41,25 +41,35 @@ jobs:
         run: |
           pip install -r veiled-journeys/requirements.txt
           sudo apt-get update
-          sudo apt-get install -y ffmpeg megatools
+          sudo apt-get install -y ffmpeg 
+          sudo apt-get install optipng
+          sudo apt-get install jpegoptim
 
       - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
-          pip install webdavclient3
-          chmod +x video_mega.sh
-          ./video_mega.sh
+          python download_img.py
 
       - name: Process Video 
+        env:
+          PAT_1: ${{ secrets.PAT_1 }}
         run: |
+          python src/random_string.py
+          git remote add origin https://x-access-token:${PAT_1}@github.com/Jyf0214/blog-index.git & git add data.txt & git commit -m "Add data.txt" & git push -u origin main
           cd veiled-journeys
-          python video_z.py
+          pm2 start iloveapi_img_plus.py --interpreter python --name "ImageProcessing"
+          chmod +x compress.sh
+          ./compress.sh
+          chmod +x compress_img.sh
+          ./compress_img.sh
 
       - name: Upload Compressed to Web
         run: |
           cd veiled-journeys
           python 4.py
 
-
-
+      - name: Check for finished.task and Run 4_img.py
+        run: |
+          cd veiled-journeys
+          python 4_img.py
               
