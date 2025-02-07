@@ -48,7 +48,7 @@ jobs:
       - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
-          python 3.py
+          python download_img.py
 
       - name: Process Video 
         env:
