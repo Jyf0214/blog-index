@@ -46,6 +46,7 @@ jobs:
       - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
+          pip install webdavclient3
           chmod +x video_mega.sh
           ./video_mega.sh
 
