@@ -65,8 +65,4 @@ jobs:
           cd veiled-journeys
           python 4.py
 
-      - name: Check for finished.task and Run 4_img.py
-        run: |
-          cd veiled-journeys
-          python 4_img.py
               
