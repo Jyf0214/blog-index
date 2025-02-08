@@ -44,6 +44,8 @@ jobs:
           sudo apt-get install -y ffmpeg 
           sudo apt-get install optipng
           sudo apt-get install jpegoptim
+          sudo apt-get install fonts-wqy-microhei
+
 
       - name: Test veiled-journeys App
         run: |
@@ -55,11 +57,7 @@ jobs:
           PAT_1: ${{ secrets.PAT_1 }}
         run: |
           cd veiled-journeys
-          pm2 start iloveapi_img_plus.py --interpreter python --name "ImageProcessing"
-          chmod +x compress.sh
-          ./compress.sh
-          chmod +x compress_img.sh
-          ./compress_img.sh
+          ffmpeg -i input.mp4 -vf "subtitles=input.srt:force_style='Fontname=WenQuanYi Micro Hei'" -c:a copy output_hardcoded.mp4
 
       - name: Upload Compressed to Web
         run: |
