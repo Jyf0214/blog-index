@@ -57,7 +57,8 @@ jobs:
           PAT_1: ${{ secrets.PAT_1 }}
         run: |
           cd veiled-journeys
-          ffmpeg -i input.mp4 -vf "subtitles=input.srt:force_style='Fontname=WenQuanYi Micro Hei'" -c:a copy output_hardcoded.mp4
+          ffmpeg -i input.mp4 -vf "subtitles=input.srt:force_style='Fontname=WenQuanYi Micro Hei'" -c:v libx264 -c:a copy -threads 8 output_hardcoded.mp4
+
 
       - name: Upload Compressed to Web
         run: |
