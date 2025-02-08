@@ -37,7 +37,7 @@ jobs:
         run: |
           cd veiled-journeys
           chmod +x video_mega.sh
-          ./video_mega.sh
+          python 3.py
 
       - name: Process Video
         run: |
