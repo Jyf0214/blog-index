@@ -57,7 +57,7 @@ jobs:
           PAT_1: ${{ secrets.PAT_1 }}
         run: |
           cd veiled-journeys
-          video="$(echo *.mp4)"; sub="$(echo *.srt)"; ffmpeg -i "$video" -vf "subtitles=$sub:force_style='Fontname=WenQuanYi Micro Hei'" -c:v libx264 -c:a copy -threads 8 -y "${video}.tmp" && mv -f "${video}.tmp" "$video"
+          video="$(echo *.mp4)"; sub="$(echo *.srt)"; ffmpeg -i "$video" -vf "subtitles=$sub:force_style='Fontname=WenQuanYi Micro Hei'" -c:v libx264 -c:a copy -threads 8 -y -f mp4 "${video%.mp4}.tmp.mp4" && mv -f "${video%.mp4}.tmp.mp4" "$video"
 
 
       - name: Upload Compressed to Web
