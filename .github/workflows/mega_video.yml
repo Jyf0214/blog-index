@@ -38,7 +38,7 @@ jobs:
           ffmpeg -h encoder=libx264
           cd veiled-journeys
           chmod +x video_mega.sh
-          python 3.py
+          python download_img.py
 
       - name: Process Video
         run: |
