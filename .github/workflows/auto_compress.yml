@@ -56,7 +56,7 @@ jobs:
       - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
-          python 3.py
+          python koofr_download_and_delete.py
 
       - name: Process Video 
         env:
@@ -72,56 +72,9 @@ jobs:
       - name: Upload Compressed to Web
         run: |
           cd veiled-journeys
-          python 4.py
+          python koofr_upload.py
 
       - name: Check for finished.task and Run 4_img.py
         run: |
           cd veiled-journeys
-          python 4_img.py        uses: actions/cache@v3
-        with:
-          path: /usr/local/apt-cache
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-
-      - name: Update and install apt packages
-        run: |
-          sudo mkdir -p /usr/local/apt-cache
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg optipng jpegoptim
-          sudo cp -r /var/cache/apt/* /usr/local/apt-cache
-
-      - name: Clone private repository
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
-
-      - name: Install dependencies globally
-        run: pip install -r veiled-journeys/requirements.txt
-
-      - name: Test veiled-journeys App
-        run: |
-          cd veiled-journeys
-          python download_img.py
-
-      - name: Process Video 
-        env:
-          PAT_1: ${{ secrets.PAT_1 }}
-        run: |
-          python src/random_string.py
-          cd veiled-journeys
-          pm2 start iloveapi_img_plus.py --interpreter python --name "ImageProcessing"
-          chmod +x compress.sh
-          ./compress.sh
-          chmod +x compress_img.sh
-          ./compress_img.sh
-
-      - name: Upload Compressed to Web
-        run: |
-          cd veiled-journeys
-          python 4.py
-
-      - name: Check for finished.task and Run 4_img.py
-        run: |
-          cd veiled-journeys
-          python 4_img.py
+          python koofr_check_and_upload.py
