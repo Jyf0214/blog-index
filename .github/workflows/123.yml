@@ -7,7 +7,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 自动测试作业
   auto-sign:
     runs-on: ubuntu-latest
     steps:
@@ -34,19 +33,28 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      - name: Cache apt packages
+        uses: actions/cache@v3
+        with:
+          path: /usr/local/apt-cache
+          key: ${{ runner.os }}-apt-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      - name: Update and install apt packages
+        run: |
+          sudo mkdir -p /usr/local/apt-cache
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg optipng jpegoptim
+          sudo cp -r /var/cache/apt/* /usr/local/apt-cache
+
       - name: Clone private repository
         env:
           PAT: ${{ secrets.PAT }}
-        run: |
-          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
       - name: Install dependencies globally
-        run: |
-          pip install -r veiled-journeys/requirements.txt
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg 
-          sudo apt-get install optipng
-          sudo apt-get install jpegoptim
+        run: pip install -r veiled-journeys/requirements.txt
 
       - name: Test veiled-journeys App
         run: |
@@ -74,4 +82,3 @@ jobs:
         run: |
           cd veiled-journeys
           python 4_img.py
-              
