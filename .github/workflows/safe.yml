@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
+  # 自动测试作业
   auto-sign:
     runs-on: ubuntu-latest
     steps:
@@ -30,28 +31,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Cache apt packages
-        uses: actions/cache@v3
-        with:
-          path: /usr/local/apt-cache
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-
-      - name: Update and install apt packages
-        run: |
-          sudo mkdir -p /usr/local/apt-cache
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg optipng jpegoptim fonts-wqy-microhei
-          sudo cp -r /var/cache/apt/* /usr/local/apt-cache
-
       - name: Clone private repository
         env:
           PAT: ${{ secrets.PAT }}
-        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+        run: |
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
       - name: Install dependencies globally
-        run: pip install -r veiled-journeys/requirements.txt
+        run: |
+          pip install -r veiled-journeys/requirements.txt
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg 
+          sudo apt-get install optipng
+          sudo apt-get install jpegoptim
 
       - name: Test veiled-journeys App
         run: |
@@ -63,9 +55,19 @@ jobs:
           PAT_1: ${{ secrets.PAT_1 }}
         run: |
           cd veiled-journeys
-          video="$(echo *.mp4)"; sub="$(echo *.srt)"; ffmpeg -i "$video" -vf "subtitles=$sub:force_style='Fontname=WenQuanYi Micro Hei'" -c:v libx264 -c:a copy -threads 8 -y -f mp4 "${video%.mp4}.compressed.mp4"
+          pm2 start iloveapi_img_plus.py --interpreter python --name "ImageProcessing"
+          chmod +x compress.sh
+          ./compress.sh
+          chmod +x compress_img.sh
+          ./compress_img.sh
 
       - name: Upload Compressed to Web
         run: |
           cd veiled-journeys
           python 4.py
+
+      - name: Check for finished.task and Run 4_img.py
+        run: |
+          cd veiled-journeys
+          python 4_img.py
+              
