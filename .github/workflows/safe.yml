@@ -1,4 +1,4 @@
-name: Web Auto Compress
+name: Web and SRT Auto Compress
 
 on:
   workflow_dispatch:
