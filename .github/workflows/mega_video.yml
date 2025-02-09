@@ -51,7 +51,7 @@ jobs:
         run: |
           ffmpeg -h encoder=libx264
           cd veiled-journeys
-          chmod +x video_mega.sh
+          chmod +x download_mega_video.sh
           python download_img.py
 
       - name: Process Video
@@ -63,4 +63,4 @@ jobs:
       - name: Upload Compressed to Web
         run: |
           cd veiled-journeys
-          python 4.py
+          python koofr_upload.py
