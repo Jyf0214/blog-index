@@ -5,7 +5,7 @@ on:
 
 jobs:
   auto-sign:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest  # 使用最新的稳定 Ubuntu 版本
     steps:
       - uses: actions/checkout@v4
 
