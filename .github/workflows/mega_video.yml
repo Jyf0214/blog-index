@@ -22,16 +22,30 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      - name: Cache apt packages
+        uses: actions/cache@v3
+        with:
+          path: /usr/local/apt-cache
+          key: ${{ runner.os }}-apt-${{ hashFiles('veiled-journeys/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      - name: Update and install apt packages
+        run: |
+          sudo mkdir -p /usr/local/apt-cache
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg megatools
+          sudo cp -r /var/cache/apt/* /usr/local/apt-cache
+
       - name: Clone private repository
         env:
           PAT: ${{ secrets.PAT }}
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      - name: Install dependencies and megatools
+      - name: Install Python dependencies
         run: |
           pip install -r veiled-journeys/requirements.txt
-          sudo apt-get install -y ffmpeg megatools
 
       - name: Test veiled-journeys App
         run: |
