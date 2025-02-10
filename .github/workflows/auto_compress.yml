@@ -56,7 +56,7 @@ jobs:
       - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
-          python koofr_download_and_delete.py
+          python download_img.py
 
       - name: Process Video 
         env:
