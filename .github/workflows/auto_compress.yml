@@ -54,7 +54,7 @@ jobs:
         run: pip install -r veiled-journeys/requirements.txt
 
       - name: 设置执行权限
-        run: chmod +x process_loop.sh
+        run: chmod +x veiled-journeys/process_loop.sh
 
       - name: 执行处理循环
-        run: ./process_loop.sh
+        run: ./veiled-journeys/process_loop.sh
