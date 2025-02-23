@@ -62,4 +62,6 @@ jobs:
         run: chmod +x veiled-journeys/process_loop.sh
 
       - name: 执行处理循环
-        run: ./veiled-journeys/process_loop.sh
+        run: |
+          cd veiled-journeys
+          ./process_loop.sh
