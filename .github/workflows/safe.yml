@@ -89,9 +89,8 @@ jobs:
           wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth -P weights
           # inference
           pip uninstall numpy -y
-          pip install numpy==1.22.4
-          pip install torch==1.10.0+cu102 torchvision==0.11.0+cu102 -f https://download.pytorch.org/whl/torch_stable.html
-          pip install torch==1.10.0 torchvision==0.11.0 --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install numpy==1.24.3
+          pip install torch==1.10.0 torchvision==0.11.0 opencv-python
           python inference_realesrgan.py -n RealESRGAN_x4plus_anime_6B -i input_images
 
       # 上传压缩后的文件到 Web
