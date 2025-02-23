@@ -51,6 +51,7 @@ jobs:
       # 更新并安装 apt 包
       - name: Update and install apt packages
         run: |
+          nvidia-smi
           sudo apt-get update
 
       # 克隆私有仓库
