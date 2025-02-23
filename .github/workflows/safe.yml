@@ -68,6 +68,7 @@ jobs:
       - name: Test veiled-journeys App
         run: |
           cd veiled-journeys
+          pip install torch==1.10.0 torchvision==0.11.0 opencv-python
           
 
       # 处理视频
