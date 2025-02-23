@@ -1,4 +1,4 @@
-name: Web and SRT Auto Compress
+name: Picture Auto Compress
 
 on:
   push:
@@ -93,9 +93,6 @@ jobs:
       - name: Upload Compressed to Web
         run: |
           cd veiled-journeys
+          python Picture_upload.py
           
 
-      # 检查 finished.task 并运行 4_img.py
-      - name: Check for finished.task and Run 4_img.py
-        run: |
-          cd veiled-journeys
