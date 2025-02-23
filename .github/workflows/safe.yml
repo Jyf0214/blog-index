@@ -51,6 +51,8 @@ jobs:
       # 更新并安装 apt 包
       - name: Update and install apt packages
         run: |
+          sudo apt-get update
+          sudo apt-get install nvidia-driver
           nvidia-smi
           sudo apt-get update
 
