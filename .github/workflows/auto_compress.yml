@@ -63,5 +63,8 @@ jobs:
 
       - name: 执行处理循环
         run: |
+          sudo apt-get install jpegoptim
+          sudo apt-get install optipng
           cd veiled-journeys
+          chmod +x compress_img.sh
           ./process_loop.sh
