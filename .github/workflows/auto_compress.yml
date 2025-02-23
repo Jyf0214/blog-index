@@ -1,6 +1,11 @@
 name: Auto Compress Workflow
 
 on:
+  schedule:
+    - cron: '0 0 * * *'   # 每天凌晨 0 点
+    - cron: '0 6 * * *'   # 每天早晨 6 点
+    - cron: '0 12 * * *'  # 每天中午 12 点
+    - cron: '0 18 * * *'  # 每天下午 6 点
   workflow_dispatch:
 
 jobs:
