@@ -83,6 +83,7 @@ jobs:
           pip install gfpgan
           pip install -r requirements.txt
           python setup.py develop
+          python Picture_download.py
 
       # 上传压缩后的文件到 Web
       - name: Upload Compressed to Web
