@@ -53,28 +53,8 @@ jobs:
       - name: Install dependencies globally
         run: pip install -r veiled-journeys/requirements.txt
 
-      - name: Test veiled-journeys App
-        run: |
-          cd veiled-journeys
-          python download_img.py
+      - name: 设置执行权限
+        run: chmod +x process_loop.sh
 
-      - name: Process Video 
-        env:
-          PAT_1: ${{ secrets.PAT_1 }}
-        run: |
-          cd veiled-journeys
-          pm2 start iloveapi_img_plus.py --interpreter python --name "ImageProcessing"
-          chmod +x compress.sh
-          ./compress.sh
-          chmod +x compress_img.sh
-          ./compress_img.sh
-
-      - name: Upload Compressed to Web
-        run: |
-          cd veiled-journeys
-          python koofr_upload.py
-
-      - name: Check for finished.task and Run 4_img.py
-        run: |
-          cd veiled-journeys
-          python koofr_check_and_upload.py
+      - name: 执行处理循环
+        run: ./process_loop.sh
