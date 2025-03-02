@@ -6,7 +6,6 @@ on:
 jobs:
   video-processing:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # 设置超时时间
 
     steps:
       - uses: actions/checkout@v4
