@@ -1,11 +1,13 @@
-name: Video Auto Compress
+name: Optimized Video Processor
 
 on:
   workflow_dispatch:
 
 jobs:
-  auto-sign:
+  video-processing:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # 设置超时时间
+
     steps:
       - uses: actions/checkout@v4
 
@@ -14,80 +16,95 @@ jobs:
         with:
           python-version: 3.9
 
-      - name: Cache dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/pip
-            /usr/local/apt-cache
-          key: ${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
-
-      - name: Install system packages
+      - name: Setup Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg megatools
+          sudo apt-get install -y \
+            ffmpeg \
+            mediainfo \  # 用于视频分析
+            htop \       # 资源监控
+            python3-pip
 
-      - name: Clone private repo
+      - name: Clone Repository
         env:
           PAT: ${{ secrets.PAT }}
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      - name: Install Python requirements
+      - name: Create Processor Script
         run: |
-          pip install -r veiled-journeys/requirements.txt
-
-      - name: Add video processor script
-        run: |
-          cd veiled-journeys
-          cat > process_video.sh <<'EOL'
+          cat > veiled-journeys/video_processor.sh <<'EOL'
           #!/bin/bash
-          export LANG="en_US.UTF-8"
-          
-          echo "----- 开始寻找视频和字幕文件 ----- [^._.^]ﾉ"
-          
-          video_file=$(find . -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \) | head -n 1)
-          subtitle_file=$(find . -maxdepth 1 -type f -iname "*.srt" | head -n 1)
-          
-          if [ -z "$video_file" ]; then
-              echo "错误：没有找到视频文件！请检查目录"
-              exit 1
-          elif [ $(find . -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \) | wc -l) -gt 1 ]; then
-              echo "错误：检测到多个视频文件！请只保留一个"
-              exit 1
-          fi
-          
-          if [ -z "$subtitle_file" ]; then
-              echo "错误：没有找到字幕文件！请确认存在.srt文件"
-              exit 1
-          elif [ $(find . -maxdepth 1 -type f -iname "*.srt" | wc -l) -gt 1 ]; then
-              echo "错误：检测到多个字幕文件！请只保留一个"
-              exit 1
-          fi
-          
-          video_file_escaped=$(printf '%q' "$video_file")
-          subtitle_file_escaped=$(printf '%q' "$subtitle_file")
-          output_file="output_$(date +%Y%m%d%H%M%S).mp4"
-          
-          echo -e "\n----- 开始合成视频 ----- (ﾉ>ω<)ﾉ"
-          ffmpeg -v error -stats -i "$video_file" \
-              -vf "subtitles=$subtitle_file_escaped:force_style='Fontname=Microsoft YaHei,Fontsize=20'" \
-              -c:v libx264 -profile:v baseline -level 3.0 \
-              -c:a aac -b:a 128k \
-              -y "$output_file"
-          
-          echo -e "\n----- 合并完成！----- ٩(^ᴗ^)۶"
+          # 资源限制参数
+          MAX_THREADS=$(( $(nproc) - 1 ))  # 保留1个核心
+          MEM_LIMIT="6G"                  # 预留1G给系统
+
+          echo "🖥️ 系统资源 | 可用核心: $(nproc) | 总内存: $(free -h | awk '/Mem/{print $2}')"
+
+          # 文件检测
+          video_file=$(find . -maxdepth 1 -type \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \) -print -quit)
+          subtitle_file=$(find . -maxdepth 1 -type -iname "*.srt" -print -quit)
+
+          # 智能分辨率检测
+          resolution=$(mediainfo --Inform="Video;%Width%x%Height%" "$video_file")
+          echo "📺 检测到视频分辨率: $resolution"
+
+          # 动态参数调整
+          case $resolution in
+              3840x2160)  # 4K
+                  preset="medium"
+                  crf=23
+                  rc_lookahead=30
+                  ;;
+              1920x1080)  # 1080p
+                  preset="fast"
+                  crf=22
+                  rc_lookahead=40
+                  ;;
+              1280x720)   # 720p
+                  preset="faster"
+                  crf=21
+                  rc_lookahead=50
+                  ;;
+              *)
+                  preset="veryfast"
+                  crf=20
+                  rc_lookahead=60
+                  ;;
+          esac
+
+          # 转码命令
+          ffmpeg -v warning -i "$video_file" \
+            -vf "subtitles='$subtitle_file':force_style='Fontname=Microsoft YaHei,Fontsize=24'" \
+            -c:v libx264 \
+            -preset $preset \
+            -crf $crf \
+            -profile:v baseline \
+            -level 4.0 \
+            -x264-params \
+              "nal-hrd=cbr:rc-lookahead=$rc_lookahead:threads=$MAX_THREADS" \
+            -filter_threads $((MAX_THREADS/2)) \
+            -threads $MAX_THREADS \
+            -movflags +faststart \
+            -c:a aac -b:a 128k \
+            -max_muxing_queue_size 1024 \
+            -y "output_$(date +%s).mp4"
+
+          echo "✅ 处理完成 | 输出文件: output*.mp4"
           EOL
-          
-          chmod +x process_video.sh
-          python 
-      - name: Process video
+
+          chmod +x veiled-journeys/video_processor.sh
+          cd veiled-journeys
+          python koofr_download_and_delete.py
+
+      - name: Process Video
         run: |
           cd veiled-journeys
-          ./process_video.sh
-          ls -lh
+          /usr/bin/time -v ./video_processor.sh 2> processing_stats.log
+          echo "📊 资源使用统计："
+          cat processing_stats.log | grep -E 'Maximum resident set size|Elapsed (wall clock) time'
 
-      - name: Upload to Web
+      - name: Upload Results
         run: |
           cd veiled-journeys
           python koofr_upload.py
