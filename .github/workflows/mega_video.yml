@@ -5,7 +5,7 @@ on:
 
 jobs:
   auto-sign:
-    runs-on: ubuntu-latest  # 使用最新的稳定 Ubuntu 版本
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -14,53 +14,80 @@ jobs:
         with:
           python-version: 3.9
 
-      - name: Cache pip dependencies
+      - name: Cache dependencies
         uses: actions/cache@v3
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          path: |
+            ~/.cache/pip
+            /usr/local/apt-cache
+          key: ${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
 
-      - name: Cache apt packages
-        uses: actions/cache@v3
-        with:
-          path: /usr/local/apt-cache
-          key: ${{ runner.os }}-apt-${{ hashFiles('veiled-journeys/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-
-      - name: Update and install apt packages
+      - name: Install system packages
         run: |
-          sudo mkdir -p /usr/local/apt-cache
           sudo apt-get update
           sudo apt-get install -y ffmpeg megatools
-          sudo cp -r /var/cache/apt/* /usr/local/apt-cache
 
-      - name: Clone private repository
+      - name: Clone private repo
         env:
           PAT: ${{ secrets.PAT }}
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      - name: Install Python dependencies
+      - name: Install Python requirements
         run: |
           pip install -r veiled-journeys/requirements.txt
 
-      - name: Test veiled-journeys App
-        run: |
-          ffmpeg -h encoder=libx264
-          cd veiled-journeys
-          chmod +x download_mega_video.sh
-          python download_img.py
-
-      - name: Process Video
+      - name: Add video processor script
         run: |
           cd veiled-journeys
-          chmod +x compress.sh
-          ./compress.sh
+          cat > process_video.sh <<'EOL'
+          #!/bin/bash
+          export LANG="en_US.UTF-8"
+          
+          echo "----- 开始寻找视频和字幕文件 ----- [^._.^]ﾉ"
+          
+          video_file=$(find . -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \) | head -n 1)
+          subtitle_file=$(find . -maxdepth 1 -type f -iname "*.srt" | head -n 1)
+          
+          if [ -z "$video_file" ]; then
+              echo "错误：没有找到视频文件！请检查目录"
+              exit 1
+          elif [ $(find . -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \) | wc -l) -gt 1 ]; then
+              echo "错误：检测到多个视频文件！请只保留一个"
+              exit 1
+          fi
+          
+          if [ -z "$subtitle_file" ]; then
+              echo "错误：没有找到字幕文件！请确认存在.srt文件"
+              exit 1
+          elif [ $(find . -maxdepth 1 -type f -iname "*.srt" | wc -l) -gt 1 ]; then
+              echo "错误：检测到多个字幕文件！请只保留一个"
+              exit 1
+          fi
+          
+          video_file_escaped=$(printf '%q' "$video_file")
+          subtitle_file_escaped=$(printf '%q' "$subtitle_file")
+          output_file="output_$(date +%Y%m%d%H%M%S).mp4"
+          
+          echo -e "\n----- 开始合成视频 ----- (ﾉ>ω<)ﾉ"
+          ffmpeg -v error -stats -i "$video_file" \
+              -vf "subtitles=$subtitle_file_escaped:force_style='Fontname=Microsoft YaHei,Fontsize=20'" \
+              -c:v libx264 -profile:v baseline -level 3.0 \
+              -c:a aac -b:a 128k \
+              -y "$output_file"
+          
+          echo -e "\n----- 合并完成！----- ٩(^ᴗ^)۶"
+          EOL
+          
+          chmod +x process_video.sh
+          python 
+      - name: Process video
+        run: |
+          cd veiled-journeys
+          ./process_video.sh
+          ls -lh
 
-      - name: Upload Compressed to Web
+      - name: Upload to Web
         run: |
           cd veiled-journeys
           python koofr_upload.py
