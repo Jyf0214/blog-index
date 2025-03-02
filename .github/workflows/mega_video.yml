@@ -18,11 +18,7 @@ jobs:
       - name: Setup Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            ffmpeg \
-            mediainfo \  # 用于视频分析
-            htop \       # 资源监控
-            python3-pip
+          sudo apt-get install -y ffmpeg mediainfo htop 
 
       - name: Clone Repository
         env:
