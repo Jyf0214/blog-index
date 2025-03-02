@@ -31,62 +31,49 @@ jobs:
         run: |
           cat > veiled-journeys/video_processor.sh <<'EOL'
           #!/bin/bash
-          # 资源限制参数
-          MAX_THREADS=$(( $(nproc) - 1 ))  # 保留1个核心
-          MEM_LIMIT="6G"                  # 预留1G给系统
 
-          echo "🖥️ 系统资源 | 可用核心: $(nproc) | 总内存: $(free -h | awk '/Mem/{print $2}')"
+          # 查找视频文件和 SRT 字幕文件
+          find_video() {
+              find . -maxdepth 1 -type \( -name "*.mp4" -o -name "*.avi" -o -name "*.mkv" \) -print -quit
+          }
 
-          # 文件检测
-          video_file=$(find . -maxdepth 1 -type \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \) -print -quit)
-          subtitle_file=$(find . -maxdepth 1 -type -iname "*.srt" -print -quit)
+          find_srt() {
+              find . -maxdepth 1 -type f -name "*.srt" -print -quit
+          }
 
-          # 智能分辨率检测
-          resolution=$(mediainfo --Inform="Video;%Width%x%Height%" "$video_file")
-          echo "📺 检测到视频分辨率: $resolution"
+          # 获取当前目录
+          CURRENT_DIR=$(pwd)
 
-          # 动态参数调整
-          case $resolution in
-              3840x2160)  # 4K
-                  preset="medium"
-                  crf=23
-                  rc_lookahead=30
-                  ;;
-              1920x1080)  # 1080p
-                  preset="fast"
-                  crf=22
-                  rc_lookahead=40
-                  ;;
-              1280x720)   # 720p
-                  preset="faster"
-                  crf=21
-                  rc_lookahead=50
-                  ;;
-              *)
-                  preset="veryfast"
-                  crf=20
-                  rc_lookahead=60
-                  ;;
-          esac
+          # 查找视频和字幕文件
+          VIDEO_FILE=$(find_video)
+          SRT_FILE=$(find_srt)
 
-          # 转码命令
-          ffmpeg -v warning -i "$video_file" \
-            -vf "subtitles='$subtitle_file':force_style='Fontname=Microsoft YaHei,Fontsize=24'" \
-            -c:v libx264 \
-            -preset $preset \
-            -crf $crf \
-            -profile:v baseline \
-            -level 4.0 \
-            -x264-params \
-              "nal-hrd=cbr:rc-lookahead=$rc_lookahead:threads=$MAX_THREADS" \
-            -filter_threads $((MAX_THREADS/2)) \
-            -threads $MAX_THREADS \
-            -movflags +faststart \
-            -c:a aac -b:a 128k \
-            -max_muxing_queue_size 1024 \
-            -y "output_$(date +%s).mp4"
+          # 检查是否找到了视频和字幕文件
+          if [ -z "$VIDEO_FILE" ] || [ -z "$SRT_FILE" ]; then
+              echo "未找到视频文件或 SRT 字幕文件。请确保它们在同一个目录下，且目录中只有一个视频文件。"
+              exit 1
+          fi
 
-          echo "✅ 处理完成 | 输出文件: output*.mp4"
+          # 构建输出文件路径
+          OUTPUT_FILE="$CURRENT_DIR/output.mp4"
+
+          # FFmpeg 命令
+          FFMPEG_COMMAND="ffmpeg -i \"$VIDEO_FILE\" -vf \"subtitles='$SRT_FILE':force_style='FontName=Microsoft YaHei,FontSize=24,PrimaryColour=&H00FFFFFF,BorderStyle=1,OutlineColour=&H00000000,Shadow=0'\" -c:v libx264 -profile:v baseline -level 3.0 -c:a aac -b:a 128k -movflags faststart \"$OUTPUT_FILE\""
+
+          # 执行 FFmpeg 命令
+          echo "Running FFmpeg command: $FFMPEG_COMMAND"
+          eval "$FFMPEG_COMMAND"
+
+          # 检查 FFmpeg 命令是否成功
+          if [ $? -eq 0 ]; then
+              echo "视频和字幕合并完成！输出文件: $OUTPUT_FILE"
+              echo "✅ 处理完成 | 输出文件: output*.mp4"
+          else
+              echo "FFmpeg 执行出错！"
+              exit 1
+          fi
+
+          exit 0
           EOL
 
           chmod +x veiled-journeys/video_processor.sh
@@ -96,9 +83,7 @@ jobs:
       - name: Process Video
         run: |
           cd veiled-journeys
-          /usr/bin/time -v ./video_processor.sh 2> processing_stats.log
-          echo "📊 资源使用统计："
-          cat processing_stats.log | grep -E 'Maximum resident set size|Elapsed (wall clock) time'
+          ./video_processor.sh 
 
       - name: Upload Results
         run: |
