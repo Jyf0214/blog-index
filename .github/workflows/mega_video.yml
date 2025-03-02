@@ -19,7 +19,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg mediainfo htop 
-          sudo apt install ttf-mscorefonts-installer -y
+          # 安装中文字体支持
+          sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
+          sudo apt-get install -y ttf-mscorefonts-installer
           sudo fc-cache -fv
           pip install requests>=2.28.0 cryptography>=39.0.0 resend>=0.1.0 huaweicloudsdkfunctiongraph>=3.0.0 huaweicloudsdkcore>=3.0.0 pillow webdavclient3
 
@@ -34,7 +37,6 @@ jobs:
           cat > veiled-journeys/video_processor.sh <<'EOL'
           #!/bin/bash
 
-          # 查找视频文件和 SRT 字幕文件
           find_video() {
               find . -maxdepth 1 -type f \( -name "*.mp4" -o -name "*.avi" -o -name "*.mkv" \) -print -quit
           }
@@ -43,42 +45,32 @@ jobs:
               find . -maxdepth 1 -type f -name "*.srt" -print -quit
           }
 
-          # 获取当前目录
           CURRENT_DIR=$(pwd)
           echo "当前目录: $CURRENT_DIR"
 
-          # 查找视频和字幕文件
           VIDEO_FILE=$(find_video)
           SRT_FILE=$(find_srt)
           echo "找到视频文件: $VIDEO_FILE"
           echo "找到字幕文件: $SRT_FILE"
 
-          # 检查是否找到了视频和字幕文件
           if [ -z "$VIDEO_FILE" ] || [ -z "$SRT_FILE" ]; then
-              echo "未找到视频文件或 SRT 字幕文件。请确保它们在同一个目录下，且目录中只有一个视频文件。"
+              echo "未找到视频文件或 SRT 字幕文件"
               exit 1
           fi
 
-          # 构建输出文件路径
           OUTPUT_FILE="$CURRENT_DIR/output.mp4"
 
-          # FFmpeg 命令
-          FFMPEG_COMMAND="ffmpeg -i \"$VIDEO_FILE\" -vf \"subtitles='$SRT_FILE':force_style='FontName=Microsoft YaHei,FontSize=24,PrimaryColour=&H00FFFFFF,BorderStyle=1,OutlineColour=&H00000000,Shadow=0'\" -c:v libx264 -profile:v baseline -level 3.0 -c:a aac -b:a 128k -movflags faststart \"$OUTPUT_FILE\""
+          FFMPEG_COMMAND="ffmpeg -i \"$VIDEO_FILE\" -vf \"subtitles='$SRT_FILE':force_style='FontName=Microsoft YaHei,Noto Sans CJK SC,Fallback Fonts,FontSize=24,PrimaryColour=&H00FFFFFF,BorderStyle=1,OutlineColour=&H00000000,Shadow=0'\" -c:v libx264 -profile:v baseline -level 3.0 -c:a aac -b:a 128k -movflags faststart \"$OUTPUT_FILE\""
 
-          # 执行 FFmpeg 命令
           echo "Running FFmpeg command: $FFMPEG_COMMAND"
           eval "$FFMPEG_COMMAND"
 
-          # 检查 FFmpeg 命令是否成功
           if [ $? -eq 0 ]; then
-              echo "视频和字幕合并完成！输出文件: $OUTPUT_FILE"
-              echo "✅ 处理完成 | 输出文件: output*.mp4"
+              echo "✅ 处理完成 | 输出文件: $OUTPUT_FILE"
           else
               echo "FFmpeg 执行出错！"
               exit 1
           fi
-
-          exit 0
           EOL
 
           chmod +x veiled-journeys/video_processor.sh
