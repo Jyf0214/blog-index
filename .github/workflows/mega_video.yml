@@ -18,9 +18,9 @@ jobs:
       - name: Setup Environment
         run: |
           sudo apt-get update
+          sudo apt-get install -y ffmpeg mediainfo htop 
           sudo apt install ttf-mscorefonts-installer -y
           sudo fc-cache -fv
-          sudo apt-get install -y ffmpeg mediainfo htop 
           pip install requests>=2.28.0 cryptography>=39.0.0 resend>=0.1.0 huaweicloudsdkfunctiongraph>=3.0.0 huaweicloudsdkcore>=3.0.0 pillow webdavclient3
 
       - name: Clone Repository
@@ -36,7 +36,7 @@ jobs:
 
           # 查找视频文件和 SRT 字幕文件
           find_video() {
-              find . -maxdepth 1 -type \( -name "*.mp4" -o -name "*.avi" -o -name "*.mkv" \) -print -quit
+              find . -maxdepth 1 -type f \( -name "*.mp4" -o -name "*.avi" -o -name "*.mkv" \) -print -quit
           }
 
           find_srt() {
@@ -45,10 +45,13 @@ jobs:
 
           # 获取当前目录
           CURRENT_DIR=$(pwd)
+          echo "当前目录: $CURRENT_DIR"
 
           # 查找视频和字幕文件
           VIDEO_FILE=$(find_video)
           SRT_FILE=$(find_srt)
+          echo "找到视频文件: $VIDEO_FILE"
+          echo "找到字幕文件: $SRT_FILE"
 
           # 检查是否找到了视频和字幕文件
           if [ -z "$VIDEO_FILE" ] || [ -z "$SRT_FILE" ]; then
