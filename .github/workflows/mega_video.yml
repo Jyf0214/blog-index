@@ -18,6 +18,8 @@ jobs:
       - name: Setup Environment
         run: |
           sudo apt-get update
+          sudo apt install ttf-mscorefonts-installer -y
+          sudo fc-cache -fv
           sudo apt-get install -y ffmpeg mediainfo htop 
           pip install requests>=2.28.0 cryptography>=39.0.0 resend>=0.1.0 huaweicloudsdkfunctiongraph>=3.0.0 huaweicloudsdkcore>=3.0.0 pillow webdavclient3
 
