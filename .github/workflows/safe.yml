@@ -80,7 +80,7 @@ jobs:
           PAT_1: ${{ secrets.PAT_1 }}
         run: |
           cd veiled-journeys
-          git clone https://github.com/xinntao/Real-ESRGAN.git
+          git clone https://github.com/Jyf0214/Real-ESRGAN.git
           python Picture_download.py
           cd Real-ESRGAN
           pip install basicsr
