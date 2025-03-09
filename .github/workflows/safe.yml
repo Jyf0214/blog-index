@@ -1,36 +1,19 @@
-name: Picture Auto Compress
+name: Video Auto Compress
 
 on:
-  push:
-    branches:
-      - main  # 在 main 分支推送时触发
-  workflow_dispatch:  # 支持手动触发
+  workflow_dispatch:
 
 jobs:
   auto-sign:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # 使用最新的稳定 Ubuntu 版本
     steps:
-      # 检出代码
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 设置 Python 环境
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
 
-      # 设置 Node.js 环境
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      # 全局安装 pm2
-      - name: Install pm2 globally
-        run: npm install -g pm2
-
-      # 缓存 pip 依赖
       - name: Cache pip dependencies
         uses: actions/cache@v3
         with:
@@ -39,64 +22,45 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # 缓存 apt 包
       - name: Cache apt packages
         uses: actions/cache@v3
         with:
           path: /usr/local/apt-cache
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-apt-${{ hashFiles('veiled-journeys/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-apt-
 
-      # 更新并安装 apt 包
       - name: Update and install apt packages
         run: |
+          sudo mkdir -p /usr/local/apt-cache
           sudo apt-get update
+          sudo apt-get install -y ffmpeg megatools
+          sudo cp -r /var/cache/apt/* /usr/local/apt-cache
 
-      # 克隆私有仓库
       - name: Clone private repository
         env:
           PAT: ${{ secrets.PAT }}
-        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+        run: |
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      # 全局安装依赖
-      - name: Install dependencies globally
-        run: pip install -r veiled-journeys/requirements.txt
+      - name: Install Python dependencies
+        run: |
+          pip install -r veiled-journeys/requirements.txt
 
-      # 测试 veiled-journeys 应用
       - name: Test veiled-journeys App
         run: |
+          ffmpeg -h encoder=libx264
           cd veiled-journeys
-          pip install torch==1.10.0+cu102 torchvision==0.11.0+cu102 -f https://download.pytorch.org/whl/torch_stable.html
+          chmod +x download_mega_video.sh
+          python download_img.py
 
-          
-
-      # 处理视频
       - name: Process Video
-        env:
-          PAT_1: ${{ secrets.PAT_1 }}
         run: |
           cd veiled-journeys
-          git clone https://github.com/Jyf0214/Real-ESRGAN.git
-          python Picture_download.py
-          cd Real-ESRGAN
-          pip install basicsr
-          pip install facexlib
-          pip install gfpgan
-          pip install -r requirements.txt
-          python setup.py develop
-          # download model
-          wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth -P weights
-          # inference
-          pip uninstall numpy -y
-          pip install numpy==1.24.3
-          pip install torch==1.10.0 torchvision==0.11.0 opencv-python
-          python inference_realesrgan.py -n RealESRGAN_x4plus_anime_6B -i input_images
+          chmod +x compress.sh
+          ./compress.sh
 
-      # 上传压缩后的文件到 Web
       - name: Upload Compressed to Web
         run: |
           cd veiled-journeys
-          python Picture_upload.py
-          
-
+          python koofr_upload.py
