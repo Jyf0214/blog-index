@@ -19,7 +19,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg mediainfo htop 
-          # 安装中文字体支持
           sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
           sudo apt-get install -y ttf-mscorefonts-installer
@@ -58,7 +57,8 @@ jobs:
               exit 1
           fi
 
-          OUTPUT_FILE="$CURRENT_DIR/output.mp4"
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          OUTPUT_FILE="$CURRENT_DIR/output_${TIMESTAMP}.mp4"  # 修改此行添加时间戳
 
           FFMPEG_COMMAND="ffmpeg -i \"$VIDEO_FILE\" -vf \"subtitles='$SRT_FILE':force_style='FontName=Microsoft YaHei,Noto Sans CJK SC,Fallback Fonts,FontSize=24,PrimaryColour=&H00FFFFFF,BorderStyle=1,OutlineColour=&H00000000,Shadow=0'\" -c:v libx264 -profile:v baseline -level 3.0 -c:a aac -b:a 128k -movflags faststart \"$OUTPUT_FILE\""
 
