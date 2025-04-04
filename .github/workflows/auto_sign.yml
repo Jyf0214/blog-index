@@ -55,6 +55,7 @@ jobs:
           python bingapi.py
           python git.py
           python src/dailymessage.py
+          python src/dailyimg.py
 
       - name: Process Skland App and Deploy to HWAWAI FC
         run: |
