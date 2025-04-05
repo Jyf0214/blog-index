@@ -52,13 +52,14 @@ jobs:
           ffmpeg -h encoder=libx264
           cd veiled-journeys
           chmod +x download_mega_video.sh
-          python download_img.py
+          python webdav_download.py -a="Pictures/" -b="./output_images/" -c=114514
 
       - name: Process Video
         run: |
           cd veiled-journeys
           chmod +x compress.sh
-          ./compress.sh
+          python a4_layout.py
+          
 
       - name: Upload Compressed to Web
         run: |
