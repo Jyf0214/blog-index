@@ -76,7 +76,7 @@ jobs:
 
           chmod +x veiled-journeys/video_processor.sh
           cd veiled-journeys
-          python koofr_download_and_delete.py
+          python app.py -a=My%20videos/ -b="." -c=2
 
       - name: Process Video
         run: |
