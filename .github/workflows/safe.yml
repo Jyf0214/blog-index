@@ -54,7 +54,7 @@ jobs:
           chmod +x download_mega_video.sh
           python webdav_download.py -a="Pictures/" -b="./output_images/" -c=114514
 
-      - name: Process Video
+      - name: Process 
         run: |
           cd veiled-journeys
           chmod +x compress.sh
