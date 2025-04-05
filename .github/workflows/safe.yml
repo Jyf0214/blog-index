@@ -1,4 +1,4 @@
-name: Video Auto Compress
+name: Pictures Auto Compress
 
 on:
   workflow_dispatch:
