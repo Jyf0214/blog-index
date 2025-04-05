@@ -59,9 +59,9 @@ jobs:
           cd veiled-journeys
           chmod +x compress.sh
           python a4_layout.py
-          
+          python iloveapi_img_plus.py	
 
       - name: Upload Compressed to Web
         run: |
           cd veiled-journeys
-          python koofr_upload.py
+          python koofr_check_and_upload.py
