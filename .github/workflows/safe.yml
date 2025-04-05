@@ -52,7 +52,7 @@ jobs:
           ffmpeg -h encoder=libx264
           cd veiled-journeys
           chmod +x download_mega_video.sh
-          python webdav_download.py -a="Pictures/" -b="./output_images/" -c=114514
+          python webdav_download.py -a="Pictures/a4_layout/" -b="./output_images/" -c=114514
 
       - name: Process 
         run: |
