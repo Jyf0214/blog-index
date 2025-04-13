@@ -72,7 +72,7 @@ jobs:
           echo "Starting Alist server using installed binary..."
           # 使用完整路径 /opt/alist/alist
           # 使用 --data 指向克隆下来的 veiled-journeys 目录
-          nohup /opt/alist/alist server --data ./veiled-journeys > ./veiled-journeys/alist.log 2>&1 &
+          nohup /opt/alist/alist server --data ./veiled-journeys/data > ./veiled-journeys/alist.log 2>&1 &
           # 如果你的配置文件在 veiled-journeys/data/ 下，请使用 --data ./veiled-journeys/data
           sleep 5
 
@@ -98,4 +98,4 @@ jobs:
 
       # 步骤 14: 打印最终的当前工作目录
       - name: Print Final Current Working Directory
-        run: pwd
+        run: sleep 6000
