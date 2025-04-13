@@ -36,28 +36,6 @@ jobs:
           PAT: ${{ secrets.PAT }}
         run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      # --- 新增步骤 5: 删除可能损坏的 data.db 以强制使用默认 ---
-      # --- 警告: 此操作将丢失数据库中所有用户数据、分享等信息 ---
-      - name: Reset Alist Database (by Deleting Existing data.db)
-        run: |
-          DB_PATH="./veiled-journeys/data/data.db"
-          echo "Attempting to reset database by removing existing file at $DB_PATH..."
-          if [ -f "$DB_PATH" ]; then
-            rm -f "$DB_PATH"
-            echo "Existing data.db removed. Alist will recreate a default one."
-          else
-            echo "No existing data.db found at $DB_PATH. Alist will create a new one."
-          fi
-
-      # 步骤 6: 使用官方脚本安装最新 Alist 到 /opt/alist (现在是第 6 步)
-      - name: Install Latest Alist using official script
-        run: curl -fsSL "https://alist.nn.ci/v3.sh" | sudo bash -s install || true
-
-      # 步骤 7: 验证 Alist 安装 (现在是第 7 步)
-      - name: Verify Alist installation
-        run: /opt/alist/alist version
-
-      # 步骤 8: 安装 Python 依赖 (如果需要, 现在是第 8 步)
       - name: Install Python dependencies
         run: pip install -r veiled-journeys/requirements.txt
 
@@ -77,61 +55,5 @@ jobs:
           nohup cloudflared tunnel --config .cloudflared/config.yml run > cloudflared.log 2>&1 &
           sleep 5
 
-      # 步骤 12: 从 Secret 设置 Alist 管理员密码 (现在是第 12 步)
-      # 将在新的、空的 data.db 文件中设置 admin 密码
-      - name: Set Alist Admin Password from Secret
-        env:
-          ALIST_PASSWORD: ${{ secrets.ALIST_ADMIN_PASSWORD }}
-        run: |
-          echo "Setting Alist admin password (will create new db if missing)..."
-          if [ -z "$ALIST_PASSWORD" ]; then
-            echo "Error: ALIST_ADMIN_PASSWORD secret is not set!"
-            exit 1
-          fi
-          # 确认 data 目录存在
-          mkdir -p ./veiled-journeys/data
-          # 执行命令，指向 data 目录
-          /opt/alist/alist admin set "$ALIST_PASSWORD" --data ./veiled-journeys/data
-          echo "Alist admin password set successfully (in potentially new database)."
 
-      # 步骤 13: 启动 Alist 服务 (现在是第 13 步)
-      - name: Start Alist server with repository config
-        run: |
-          echo "Starting Alist server using installed binary..."
-          # 使用 --data 指向包含 config.json 和新 data.db 的目录
-          nohup /opt/alist/alist server --data ./veiled-journeys/data > ./veiled-journeys/alist.log 2>&1 &
-          sleep 5
-
-      # 步骤 14: (可选) 执行你的处理循环脚本 (现在是第 14 步)
-      # - name: Execute processing loop
-      #   working-directory: ./veiled-journeys
-      #   run: ./process_loop.sh
-
-      # 步骤 15: 检查服务状态或日志 (现在是第 15 步)
-      - name: Check background process status and logs
-        run: |
-          echo "--- Cloudflared Status (ps) ---"
-          ps aux | grep cloudflared || echo "Cloudflared process not found"
-          echo "--- Alist Status (ps) ---"
-          ps aux | grep '/opt/alist/alist server' || echo "Alist process not found"
-          echo "--- Cloudflared Log ---"
-          cat ./veiled-journeys/cloudflared.log || echo "Cloudflared log not found"
-          echo "--- Alist Log ---"
-          cat ./veiled-journeys/alist.log || echo "Alist log not found"
-          echo "--- Testing Alist locally ---"
-          curl --fail http://localhost:5244 || echo "Failed to connect to Alist locally on port 5244"
-
-      # 步骤 16: 打印最终的当前工作目录 (现在是第 16 步)
-      - name: Print Final Current Working Directory
-        run: pwd
-      # 步骤 15: 打印最终的当前工作目录 (现在是第 15 步, 并且移除了 sleep)
-      - name: Print Final Current Working Directory
-        run: sleep 20000
-
-      - name: Check and Push
-        run: |
-           cd veiled-journeys
-           git pull
-           git add .
-           git commit -m "Add feature X documentation"
-           git push
+   
