@@ -1,4 +1,4 @@
-name: Install Latest Alist, Set Password, Run with Repo Config
+name: Install Latest Alist, Check DB, Set Password, Run with Repo Config
 
 on:
   push:
@@ -15,8 +15,9 @@ jobs:
         uses: actions/checkout@v4
 
       # 步骤 2: 安装基础工具
-      - name: Install base tools (curl, gpg, git)
-        run: sudo apt-get update && sudo apt-get install -y curl gpg git
+      # 添加 sqlite3 用于数据库检查
+      - name: Install base tools (curl, gpg, git, sqlite3)
+        run: sudo apt-get update && sudo apt-get install -y curl gpg git sqlite3
 
       # 步骤 3: 安装 cloudflared
       - name: Create keyrings directory
@@ -36,27 +37,56 @@ jobs:
           PAT: ${{ secrets.PAT }}
         run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      # 步骤 5: 使用官方脚本安装最新 Alist 到 /opt/alist
+      # --- 新增步骤 5: 检查并可能替换损坏的 data.db ---
+      - name: Check and potentially replace corrupted data.db
+        run: |
+          DB_FILE="./veiled-journeys/data/data.db"
+          echo "Checking database file: $DB_FILE"
+
+          if [ -f "$DB_FILE" ]; then
+            echo "Database file exists. Checking integrity..."
+            # PRAGMA integrity_check; 会输出 'ok' 或错误信息。我们只关心退出码。
+            # > /dev/null 2>&1 将所有输出重定向，避免干扰日志，只检查退出状态。
+            if sqlite3 "$DB_FILE" "PRAGMA integrity_check;" > /dev/null 2>&1; then
+              echo "Database integrity check seems ok (command succeeded)."
+            else
+              # 如果命令失败（非0退出码），则认为文件损坏
+              echo "Warning: Database integrity check failed (exit code $?). File might be corrupted."
+              echo "Replacing corrupted database file by deleting it. Alist will create a new one."
+              rm -f "$DB_FILE"
+              if [ $? -eq 0 ]; then
+                echo "Corrupted database file removed."
+              else
+                echo "Error: Failed to remove corrupted database file."
+                # 可以选择在这里失败 Action，如果删除失败是严重问题
+                # exit 1
+              fi
+            fi
+          else
+            echo "Database file does not exist. Alist will create a new one."
+          fi
+
+      # 步骤 6: 使用官方脚本安装最新 Alist 到 /opt/alist (现在是第 6 步)
       - name: Install Latest Alist using official script
         run: curl -fsSL "https://alist.nn.ci/v3.sh" | sudo bash -s install || true
 
-      # 步骤 6: 验证 Alist 安装 (使用完整路径)
+      # 步骤 7: 验证 Alist 安装 (使用完整路径, 现在是第 7 步)
       - name: Verify Alist installation
         run: /opt/alist/alist version
 
-      # 步骤 7: 安装 Python 依赖 (如果需要)
+      # 步骤 8: 安装 Python 依赖 (如果需要, 现在是第 8 步)
       - name: Install Python dependencies
         run: pip install -r veiled-journeys/requirements.txt
 
-      # 步骤 8: 安装 Alist 可能需要的其他依赖 (如果需要)
+      # 步骤 9: 安装 Alist 可能需要的其他依赖 (如果需要, 现在是第 9 步)
       - name: Install image optimization tools
         run: sudo apt-get update && sudo apt-get install -y jpegoptim optipng
 
-      # 步骤 9: 设置脚本执行权限
+      # 步骤 10: 设置脚本执行权限 (现在是第 10 步)
       - name: Set script execution permission
         run: chmod +x veiled-journeys/process_loop.sh
 
-      # 步骤 10: 启动 Cloudflared Tunnel
+      # 步骤 11: 启动 Cloudflared Tunnel (现在是第 11 步)
       - name: Start Cloudflared Tunnel in background
         working-directory: ./veiled-journeys
         run: |
@@ -64,38 +94,34 @@ jobs:
           nohup cloudflared tunnel --config .cloudflared/config.yml run > cloudflared.log 2>&1 &
           sleep 5
 
-      # --- 新增步骤 11: 从 Secret 设置 Alist 管理员密码 ---
+      # 步骤 12: 从 Secret 设置 Alist 管理员密码 (现在是第 12 步)
+      # 如果 data.db 被删除了，这个命令会初始化新的数据库并设置密码
       - name: Set Alist Admin Password from Secret
         env:
-          # 将 Secret 值传递给环境变量，更安全且方便在 run 块中使用
           ALIST_PASSWORD: ${{ secrets.ALIST_ADMIN_PASSWORD }}
         run: |
           echo "Setting Alist admin password..."
-          # 检查 Secret 是否已设置
           if [ -z "$ALIST_PASSWORD" ]; then
             echo "Error: ALIST_ADMIN_PASSWORD secret is not set!"
             exit 1
           fi
-          # 使用完整路径执行命令，并指定 data 目录
-          # 这个 --data 路径必须和下一步启动 Alist 时使用的 --data 路径完全一致！
+          # --data 路径必须正确指向包含 config.json (和 data.db) 的目录
           /opt/alist/alist admin set "$ALIST_PASSWORD" --data ./veiled-journeys/data
-          echo "Alist admin password set successfully."
+          echo "Alist admin password set successfully (or database initialized if it was missing)."
 
-      # 步骤 12: 启动 Alist 服务 (现在是第 12 步)
+      # 步骤 13: 启动 Alist 服务 (现在是第 13 步)
       - name: Start Alist server with repository config
         run: |
           echo "Starting Alist server using installed binary..."
-          # 使用完整路径 /opt/alist/alist
-          # 这个 --data 路径必须和上一步设置密码时使用的 --data 路径完全一致！
           nohup /opt/alist/alist server --data ./veiled-journeys/data > ./veiled-journeys/alist.log 2>&1 &
           sleep 5
 
-      # 步骤 13: (可选) 执行你的处理循环脚本 (现在是第 13 步)
+      # 步骤 14: (可选) 执行你的处理循环脚本 (现在是第 14 步)
       # - name: Execute processing loop
       #   working-directory: ./veiled-journeys
       #   run: ./process_loop.sh
 
-      # 步骤 14: 检查服务状态或日志 (现在是第 14 步)
+      # 步骤 15: 检查服务状态或日志 (现在是第 15 步)
       - name: Check background process status and logs
         run: |
           echo "--- Cloudflared Status (ps) ---"
@@ -109,6 +135,9 @@ jobs:
           echo "--- Testing Alist locally ---"
           curl --fail http://localhost:5244 || echo "Failed to connect to Alist locally on port 5244"
 
+      # 步骤 16: 打印最终的当前工作目录 (现在是第 16 步)
+      - name: Print Final Current Working Directory
+        run: pwd
       # 步骤 15: 打印最终的当前工作目录 (现在是第 15 步, 并且移除了 sleep)
       - name: Print Final Current Working Directory
         run: sleep 20000
