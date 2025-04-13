@@ -54,12 +54,6 @@ jobs:
           nohup cloudflared tunnel --config .cloudflared/config.yml run > cloudflared.log 2>&1 &
           sleep 5
    
-      - name: Clone private repository
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
-
       - name: Install Python dependencies
         run: |
           pip install -r veiled-journeys/requirements.txt
