@@ -1,70 +1,113 @@
-name: Install Cloudflared
+name: Install Cloudflared and Run Alist Tunnel
 
-# 控制工作流何时运行
 on:
   push:
-    branches: [ main ] # 当推送到 main 分支时触发
-  workflow_dispatch:   # 允许从 Actions 页面手动触发
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  install_cloudflared_job:
-    # 指定运行此作业的 Runner 类型
+  install_and_run_job:
     runs-on: ubuntu-latest
 
     steps:
-      # 步骤 1: 检出你的代码库（可选，但通常需要后续步骤）
-      - name: Checkout repository
-        uses: actions/checkout@v4 # 使用官方的 checkout action
+      # 步骤 1: 检出运行工作流的代码库（如果需要的话）
+      # 如果此工作流文件本身就在 veiled-journeys 仓库，这步可能可以省略
+      # 但通常最好保留，以防万一
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
 
-      # 步骤 2: 创建 GPG 密钥存储目录
+      # 步骤 2: 安装基础工具 (如果 Runner 镜像不包含的话，通常 curl/gpg/git 已包含)
+      - name: Install base tools
+        run: sudo apt-get update && sudo apt-get install -y curl gpg git
+
+      # 步骤 3: 安装 cloudflared (沿用之前的步骤)
       - name: Create keyrings directory
         run: sudo mkdir -p --mode=0755 /usr/share/keyrings
-        # 使用 sudo 因为这是系统目录
-
-      # 步骤 3: 下载 Cloudflare GPG 密钥
-      # 使用 curl 下载密钥，然后用 gpg --dearmor 转换格式并保存
       - name: Download Cloudflare GPG key
-        run: |
-          curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/cloudflare-main.gpg
-
-      # 步骤 4: 添加 Cloudflare APT 仓库源
-      # 将仓库信息写入 sources.list.d 目录下的文件
-      # [signed-by=...] 指定使用哪个 GPG 密钥验证仓库
-      # $(lsb_release -cs) 会自动获取当前 Ubuntu 版本的代号 (例如: jammy, focal)
+        run: curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/cloudflare-main.gpg
       - name: Add Cloudflare APT repository
-        run: |
-          echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
-
-      # 步骤 5: 更新软件包列表并安装 cloudflared
+        run: echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
       - name: Update package list and install cloudflared
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cloudflared # -y 选项自动确认安装
-
-      # 步骤 6: 验证 cloudflared 是否安装成功
+        run: sudo apt-get update && sudo apt-get install -y cloudflared
       - name: Verify cloudflared installation
         run: cloudflared --version
 
-      # --- 在这里添加后续需要使用 cloudflared 的步骤 ---
-      # 例如：登录、创建/运行隧道等
-      # 注意：对于登录和运行隧道，你可能需要使用 GitHub Secrets 来安全地存储凭据或 Token
-      # - name: Login to Cloudflare (Example - requires secrets)
-      #   env:
-      #     CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CF_TUNNEL_TOKEN }} # 假设你设置了一个名为 CF_TUNNEL_TOKEN 的 Secret
-      #   run: cloudflared tunnel login --token $CLOUDFLARE_TUNNEL_TOKEN # 示例命令，具体看 cloudflared 文档
+      # 步骤 4: 克隆包含 Alist 和配置的私有仓库
+      # 使用 Personal Access Token (PAT) 进行认证
+      # 需要在仓库设置中配置名为 PAT 的 Secret
+      - name: Clone private repository (veiled-journeys)
+        env:
+          PAT: ${{ secrets.PAT }} # 从 GitHub Secrets 获取 PAT
+        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      # - name: Run Cloudflared Tunnel (Example - requires secrets & background process handling)
-      #   env:
-      #      TUNNEL_CONFIG: ${{ secrets.CF_TUNNEL_CONFIG_BASE64 }} # 假设你把 config.yml base64 编码后存入 Secret
-      #      TUNNEL_CREDENTIALS: ${{ secrets.CF_TUNNEL_CREDENTIALS_BASE64 }} # 假设你把 .json 凭证文件 base64 编码后存入 Secret
-      #   run: |
-      #     echo "Setting up tunnel config and credentials..."
-      #     mkdir -p $HOME/.cloudflared
-      #     echo $TUNNEL_CONFIG | base64 -d > $HOME/.cloudflared/config.yml
-      #     echo $TUNNEL_CREDENTIALS | base64 -d > $HOME/.cloudflared/YOUR_TUNNEL_ID.json # 替换 YOUR_TUNNEL_ID.json
-      #     echo "Running tunnel in background..."
-      #     nohup cloudflared tunnel --config $HOME/.cloudflared/config.yml run YOUR_TUNNEL_NAME > cloudflared.log 2>&1 & # 替换 YOUR_TUNNEL_NAME
-      #     sleep 10 # Give tunnel time to start
-      #     echo "Cloudflared log:"
-      #     cat cloudflared.log
-      #     # 注意: GitHub Action 通常是短时任务，长时间运行的后台进程可能不适合，除非用于短暂的测试或部署步骤
+      # 步骤 5: 安装 Python 依赖 (如果 Alist 或相关脚本需要)
+      - name: Install Python dependencies
+        run: pip install -r veiled-journeys/requirements.txt
+
+      # 步骤 6: 安装 Alist 可能需要的其他依赖 (例如图片处理)
+      - name: Install image optimization tools
+        run: sudo apt-get update && sudo apt-get install -y jpegoptim optipng
+
+      # 步骤 7: 设置 Alist 和脚本的执行权限
+      # 假设 Alist 可执行文件名为 'alist'，脚本为 'process_loop.sh'
+      - name: Set execution permissions
+        run: |
+          chmod +x veiled-journeys/alist
+          chmod +x veiled-journeys/process_loop.sh
+
+      # 步骤 8: 准备 Cloudflare Tunnel (配置文件已在仓库中)
+      # 注意：cloudflared 会读取 veiled-journeys/.cloudflared/ 下的配置文件
+      # config.yml 需要正确指向 .json 凭证文件（也在该目录下）
+      - name: Start Cloudflared Tunnel in background
+        working-directory: ./veiled-journeys # 设置工作目录，以便 cloudflared 能找到 .cloudflared 子目录
+        run: |
+          echo "Starting Cloudflared tunnel..."
+          # 使用 nohup 在后台运行，并将日志输出到 cloudflared.log
+          # 假设隧道名称/ID 在 config.yml 中指定，直接 run 即可
+          nohup cloudflared tunnel --config .cloudflared/config.yml run > cloudflared.log 2>&1 &
+          sleep 5 # 短暂等待，让隧道有时间启动
+
+      # 步骤 9: 启动 Alist 服务
+      # 假设 Alist 在 veiled-journeys 目录下，并且会使用同目录下的 data/config
+      - name: Start Alist server in background
+        working-directory: ./veiled-journeys # 设置工作目录
+        run: |
+          echo "Starting Alist server..."
+          # 使用 nohup 在后台运行，并将日志输出到 alist.log
+          # 假设 Alist 运行时会使用当前目录的配置和数据
+          nohup ./alist server > alist.log 2>&1 &
+          sleep 5 # 短暂等待，让 Alist 有时间启动
+
+      # 步骤 10: (可选) 执行你的处理循环脚本
+      # 注意：脚本需要自己处理循环逻辑和退出条件
+      # 如果这个脚本需要 Alist 或 Tunnel 正在运行，确保放在它们启动之后
+      # - name: Execute processing loop
+      #   working-directory: ./veiled-journeys
+      #   run: ./process_loop.sh
+
+      # 步骤 11: (可选) 检查服务状态或日志
+      # 这一步对于调试很有用
+      - name: Check background process status and logs
+        working-directory: ./veiled-journeys
+        run: |
+          echo "--- Cloudflared Status (ps) ---"
+          ps aux | grep cloudflared || echo "Cloudflared process not found"
+          echo "--- Alist Status (ps) ---"
+          ps aux | grep './alist server' || echo "Alist process not found"
+          echo "--- Cloudflared Log ---"
+          cat cloudflared.log || echo "Cloudflared log not found"
+          echo "--- Alist Log ---"
+          cat alist.log || echo "Alist log not found"
+          # 添加一个 curl 测试，看 Alist 是否响应（仅在 Runner 内部测试）
+          echo "--- Testing Alist locally ---"
+          curl --fail http://localhost:5244 || echo "Failed to connect to Alist locally on port 5244"
+
+      # 步骤 12: 打印最终的当前工作目录
+      - name: Print Final Current Working Directory
+        run: pwd
+
+      # 重要提示：
+      # GitHub Actions Runner 通常是短时运行的。
+      # 如果你的目标是持续运行 Alist 和 Tunnel，标准的 GitHub Actions 可能不是最佳选择。
+      # 这里的后台进程只会在 Action 运行期间存活。
+      # 如果 process_loop.sh 是一个长时间运行的任务，它可能会超过 Action 的超时限制。
