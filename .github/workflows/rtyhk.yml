@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 步骤 1: 检出运行工作流的代码库 (如果需要)
+      # 步骤 1: 检出运行工作流的代码库
       - name: Checkout workflow repository
         uses: actions/checkout@v4
 
@@ -36,15 +36,15 @@ jobs:
           PAT: ${{ secrets.PAT }}
         run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      # 步骤 5: 使用官方脚本安装最新 Alist 到系统路径
+      # 步骤 5: 使用官方脚本安装最新 Alist 到 /opt/alist
+      # 接受脚本可能报告的次要错误（如命令行工具安装失败）
       - name: Install Latest Alist using official script
-        run: |
-          curl -fsSL "https://alist.nn.ci/v3.sh" | sudo bash -s install
-          # 脚本会将最新的 alist 安装到 PATH, 如 /usr/local/bin/alist
+        run: curl -fsSL "https://alist.nn.ci/v3.sh" | sudo bash -s install || true
+        # 添加 '|| true' 忽略脚本本身可能因次要问题返回的非零退出码
 
-      # 步骤 6: 验证 Alist 安装 (可选)
+      # 步骤 6: 验证 Alist 安装 (使用完整路径)
       - name: Verify Alist installation
-        run: alist version # 调用系统安装的 alist
+        run: /opt/alist/alist version # <--- 修改：使用完整路径
 
       # 步骤 7: 安装 Python 依赖 (如果需要)
       - name: Install Python dependencies
@@ -54,12 +54,11 @@ jobs:
       - name: Install image optimization tools
         run: sudo apt-get update && sudo apt-get install -y jpegoptim optipng
 
-      # 步骤 9: 设置脚本执行权限 (不再需要处理 alist 文件)
+      # 步骤 9: 设置脚本执行权限
       - name: Set script execution permission
         run: chmod +x veiled-journeys/process_loop.sh
 
       # 步骤 10: 启动 Cloudflared Tunnel
-      # 使用 veiled-journeys/.cloudflared/ 中的配置
       - name: Start Cloudflared Tunnel in background
         working-directory: ./veiled-journeys
         run: |
@@ -67,13 +66,13 @@ jobs:
           nohup cloudflared tunnel --config .cloudflared/config.yml run > cloudflared.log 2>&1 &
           sleep 5
 
-      # 步骤 11: 启动 Alist 服务 (使用系统安装的最新alist，但指向仓库中的配置)
+      # 步骤 11: 启动 Alist 服务 (使用完整路径，并指向仓库中的配置)
       - name: Start Alist server with repository config
         run: |
-          echo "Starting Alist server using system binary..."
+          echo "Starting Alist server using installed binary..."
+          # 使用完整路径 /opt/alist/alist
           # 使用 --data 指向克隆下来的 veiled-journeys 目录
-          # Alist 会在此目录查找 config.json 和 data.db
-          nohup alist server --data ./veiled-journeys > ./veiled-journeys/alist.log 2>&1 &
+          nohup /opt/alist/alist server --data ./veiled-journeys > ./veiled-journeys/alist.log 2>&1 &
           # 如果你的配置文件在 veiled-journeys/data/ 下，请使用 --data ./veiled-journeys/data
           sleep 5
 
@@ -82,14 +81,14 @@ jobs:
       #   working-directory: ./veiled-journeys
       #   run: ./process_loop.sh
 
-      # 步骤 13: 检查服务状态或日志
+      # 步骤 13: 检查服务状态或日志 (调整 grep)
       - name: Check background process status and logs
         run: |
           echo "--- Cloudflared Status (ps) ---"
           ps aux | grep cloudflared || echo "Cloudflared process not found"
           echo "--- Alist Status (ps) ---"
-          # 检查系统alist进程，注意命令可能不含'./'
-          ps aux | grep -w 'alist server' || echo "Alist process not found"
+          # 检查包含完整路径的进程
+          ps aux | grep '/opt/alist/alist server' || echo "Alist process not found" # <--- 修改：调整 grep
           echo "--- Cloudflared Log ---"
           cat ./veiled-journeys/cloudflared.log || echo "Cloudflared log not found"
           echo "--- Alist Log ---"
