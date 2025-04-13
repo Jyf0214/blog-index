@@ -60,7 +60,6 @@ jobs:
 
       - name: Test veiled-journeys App
         run: |
-          ffmpeg -h encoder=libx264
           cd veiled-journeys
           chmod +x download_mega_video.sh
           python webdav_download.py -a="Pictures/a4_layout/" -b="./input_images/" -c=114514
