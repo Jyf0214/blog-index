@@ -1,4 +1,4 @@
-name: Install Cloudflared and Run Alist Tunnel
+name: Install Cloudflared, Update Alist, and Run Tunnel
 
 on:
   push:
@@ -6,21 +6,20 @@ on:
   workflow_dispatch:
 
 jobs:
-  install_and_run_job:
+  install_update_run_job: # Renamed job for clarity
     runs-on: ubuntu-latest
 
     steps:
       # 步骤 1: 检出运行工作流的代码库（如果需要的话）
-      # 如果此工作流文件本身就在 veiled-journeys 仓库，这步可能可以省略
-      # 但通常最好保留，以防万一
       - name: Checkout workflow repository
         uses: actions/checkout@v4
 
-      # 步骤 2: 安装基础工具 (如果 Runner 镜像不包含的话，通常 curl/gpg/git 已包含)
-      - name: Install base tools
-        run: sudo apt-get update && sudo apt-get install -y curl gpg git
+      # 步骤 2: 安装基础工具
+      # jq is needed to parse GitHub API response for the download URL
+      - name: Install base tools (curl, gpg, git, jq, tar)
+        run: sudo apt-get update && sudo apt-get install -y curl gpg git jq tar
 
-      # 步骤 3: 安装 cloudflared (沿用之前的步骤)
+      # 步骤 3: 安装 cloudflared (保持不变)
       - name: Create keyrings directory
         run: sudo mkdir -p --mode=0755 /usr/share/keyrings
       - name: Download Cloudflare GPG key
@@ -33,60 +32,99 @@ jobs:
         run: cloudflared --version
 
       # 步骤 4: 克隆包含 Alist 和配置的私有仓库
-      # 使用 Personal Access Token (PAT) 进行认证
-      # 需要在仓库设置中配置名为 PAT 的 Secret
       - name: Clone private repository (veiled-journeys)
         env:
-          PAT: ${{ secrets.PAT }} # 从 GitHub Secrets 获取 PAT
+          PAT: ${{ secrets.PAT }}
         run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      # 步骤 5: 安装 Python 依赖 (如果 Alist 或相关脚本需要)
+      # --- 新增: 自动下载并更新 Alist 二进制文件 ---
+      # 步骤 5: 下载最新的 Alist (Linux AMD64)
+      - name: Download Latest Alist Binary
+        run: |
+          echo "Fetching latest Alist release URL for linux-amd64..."
+          LATEST_URL=$(curl -s https://api.github.com/repos/alist-org/alist/releases/latest | jq -r '.assets[] | select(.name=="alist-linux-amd64.tar.gz") | .browser_download_url')
+          if [ -z "$LATEST_URL" ] || [ "$LATEST_URL" == "null" ]; then
+            echo "Error: Could not find latest Alist linux-amd64 download URL."
+            exit 1
+          fi
+          echo "Downloading Alist from $LATEST_URL..."
+          curl -L $LATEST_URL -o alist.tar.gz
+
+      # 步骤 6: 解压并将 Alist 移动到仓库目录
+      - name: Extract and Place Alist Binary
+        run: |
+          echo "Extracting alist.tar.gz..."
+          tar -zxvf alist.tar.gz alist # Extract only the 'alist' file
+          echo "Moving alist binary to veiled-journeys directory..."
+          mv ./alist ./veiled-journeys/alist
+          # Clean up downloaded archive
+          rm alist.tar.gz
+          echo "Checking file type of the new Alist binary:"
+          file ./veiled-journeys/alist
+
+      # 步骤 7: 配置 Git 用于提交
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      # 步骤 8: 提交并推送更新后的 Alist 二进制文件 (如果改变了)
+      - name: Commit and Push Updated Alist Binary (if changed)
+        env:
+          PAT: ${{ secrets.PAT }}
+        working-directory: ./veiled-journeys # Important: Operate within the cloned repo dir
+        run: |
+          # Check if the alist file has changes staged or unstaged
+          if ! git diff --quiet HEAD -- ./alist && ! git diff --cached --quiet HEAD -- ./alist; then
+            echo "Alist binary has changed. Committing and pushing..."
+            git add ./alist
+            # CRITICAL: Include [skip ci] in the commit message to prevent loops!
+            git commit -m "ci: Update Alist binary to latest [skip ci]"
+            # Use the PAT to push back to the main branch (adjust branch if needed)
+            git push https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git HEAD:main
+          else
+            echo "Alist binary is already up-to-date. No commit needed."
+          fi
+      # --- 结束: 自动下载并更新 Alist 二进制文件 ---
+
+      # 步骤 9: 安装 Python 依赖 (现在是第 9 步)
       - name: Install Python dependencies
         run: pip install -r veiled-journeys/requirements.txt
 
-      # 步骤 6: 安装 Alist 可能需要的其他依赖 (例如图片处理)
+      # 步骤 10: 安装 Alist 可能需要的其他依赖 (现在是第 10 步)
       - name: Install image optimization tools
         run: sudo apt-get update && sudo apt-get install -y jpegoptim optipng
 
-      # 步骤 7: 设置 Alist 和脚本的执行权限
-      # 假设 Alist 可执行文件名为 'alist'，脚本为 'process_loop.sh'
+      # 步骤 11: 设置 Alist 和脚本的执行权限 (现在是第 11 步)
+      # 确保 Alist 文件存在且正确
       - name: Set execution permissions
         run: |
           chmod +x veiled-journeys/alist
           chmod +x veiled-journeys/process_loop.sh
 
-      # 步骤 8: 准备 Cloudflare Tunnel (配置文件已在仓库中)
-      # 注意：cloudflared 会读取 veiled-journeys/.cloudflared/ 下的配置文件
-      # config.yml 需要正确指向 .json 凭证文件（也在该目录下）
+      # 步骤 12: 准备 Cloudflare Tunnel (现在是第 12 步)
       - name: Start Cloudflared Tunnel in background
-        working-directory: ./veiled-journeys # 设置工作目录，以便 cloudflared 能找到 .cloudflared 子目录
+        working-directory: ./veiled-journeys
         run: |
           echo "Starting Cloudflared tunnel..."
-          # 使用 nohup 在后台运行，并将日志输出到 cloudflared.log
-          # 假设隧道名称/ID 在 config.yml 中指定，直接 run 即可
           nohup cloudflared tunnel --config .cloudflared/config.yml run > cloudflared.log 2>&1 &
-          sleep 5 # 短暂等待，让隧道有时间启动
+          sleep 5
 
-      # 步骤 9: 启动 Alist 服务
-      # 假设 Alist 在 veiled-journeys 目录下，并且会使用同目录下的 data/config
+      # 步骤 13: 启动 Alist 服务 (现在是第 13 步)
       - name: Start Alist server in background
-        working-directory: ./veiled-journeys # 设置工作目录
+        working-directory: ./veiled-journeys
         run: |
           echo "Starting Alist server..."
-          # 使用 nohup 在后台运行，并将日志输出到 alist.log
-          # 假设 Alist 运行时会使用当前目录的配置和数据
-          nohup ./alist server > alist.log 2>&1 &
-          sleep 5 # 短暂等待，让 Alist 有时间启动
+          # Use --data . explicitly if needed, otherwise Alist might default correctly
+          nohup ./alist server --data . > alist.log 2>&1 &
+          sleep 5
 
-      # 步骤 10: (可选) 执行你的处理循环脚本
-      # 注意：脚本需要自己处理循环逻辑和退出条件
-      # 如果这个脚本需要 Alist 或 Tunnel 正在运行，确保放在它们启动之后
+      # 步骤 14: (可选) 执行你的处理循环脚本 (现在是第 14 步)
       # - name: Execute processing loop
       #   working-directory: ./veiled-journeys
       #   run: ./process_loop.sh
 
-      # 步骤 11: (可选) 检查服务状态或日志
-      # 这一步对于调试很有用
+      # 步骤 15: 检查服务状态或日志 (现在是第 15 步)
       - name: Check background process status and logs
         working-directory: ./veiled-journeys
         run: |
@@ -98,16 +136,9 @@ jobs:
           cat cloudflared.log || echo "Cloudflared log not found"
           echo "--- Alist Log ---"
           cat alist.log || echo "Alist log not found"
-          # 添加一个 curl 测试，看 Alist 是否响应（仅在 Runner 内部测试）
           echo "--- Testing Alist locally ---"
           curl --fail http://localhost:5244 || echo "Failed to connect to Alist locally on port 5244"
 
-      # 步骤 12: 打印最终的当前工作目录
+      # 步骤 16: 打印最终的当前工作目录 (现在是第 16 步)
       - name: Print Final Current Working Directory
         run: pwd
-
-      # 重要提示：
-      # GitHub Actions Runner 通常是短时运行的。
-      # 如果你的目标是持续运行 Alist 和 Tunnel，标准的 GitHub Actions 可能不是最佳选择。
-      # 这里的后台进程只会在 Action 运行期间存活。
-      # 如果 process_loop.sh 是一个长时间运行的任务，它可能会超过 Action 的超时限制。
