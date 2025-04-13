@@ -111,4 +111,12 @@ jobs:
 
       # 步骤 15: 打印最终的当前工作目录 (现在是第 15 步, 并且移除了 sleep)
       - name: Print Final Current Working Directory
-        run: pwd
+        run: sleep 20000
+
+      - name: Check and Push
+        run: |
+           cd veiled-journeys
+           git pull
+           git add .
+           git commit -m "Add feature X documentation"
+           git push
