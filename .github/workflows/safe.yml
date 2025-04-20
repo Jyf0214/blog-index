@@ -71,6 +71,8 @@ jobs:
           python app.py
           python a4_layout.py
           python iloveapi_img_plus.py	
+          git add processed_images.log
+          
 
       - name: Upload Compressed to Web
         run: |
