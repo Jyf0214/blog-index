@@ -69,8 +69,8 @@ jobs:
           cd veiled-journeys
           chmod +x compress.sh
           python app.py
-          python a4_layout.py
-          python iloveapi_img_plus.py	
+          python iloveapi_img_plus.py
+          python a4_layout.py	
           git add processed_images.log
           git commit -m "Update from workflow" || true
           git push || true
