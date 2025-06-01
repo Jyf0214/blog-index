@@ -52,7 +52,8 @@ jobs:
         run: |
           echo "Starting Cloudflared tunnel..."
           nohup cloudflared tunnel --config .cloudflared/config.yml run > cloudflared.log 2>&1 &
-          sleep 5
+          sudo apt install fonts-noto-cjk
+          sudo fc-cache -f -v
    
       - name: Install Python dependencies
         run: |
