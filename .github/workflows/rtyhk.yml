@@ -1,10 +1,8 @@
-# .github/workflows/run_with_cloudflare.yml
-name: Run OpenList + Kemono Downloader via Cloudflare Tunnel
+# .github/workflows/run_with_cloudflare_fixed.yml
+name: Run OpenList + Kemono Downloader via Cloudflare
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 2 * * *'
 
 jobs:
   openlist-kemono:
@@ -17,15 +15,18 @@ jobs:
       with:
         python-version: '3.11'
 
+    - name: Prepare TERM env
+      run: echo "export TERM=xterm-256color" >> $GITHUB_ENV
+
     - name: Install OpenList
       run: |
         curl -fsSL "https://docs.openlist.team/v3.sh" -o v3.sh
-        bash v3.sh install /opt/openlist
+        sudo bash v3.sh install /opt/openlist
 
     - name: Configure OpenList
       run: |
         cd /opt/openlist
-        ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
+        sudo ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
         if [ -d ../../openlist ]; then sudo cp -r ../../openlist/* data/; fi
       env:
         OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
