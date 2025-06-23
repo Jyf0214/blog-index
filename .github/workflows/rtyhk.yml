@@ -38,7 +38,7 @@ jobs:
           
           # 2. 为admin用户启用WebDAV
           echo "Enabling WebDAV for admin user..."
-          sudo ./openlist user set admin --webdav_manage=true --webdav_read=true
+          sudo ./openlist admin set admin --webdav_manage=true --webdav_read=true
           
           # 3. 添加Terabox存储 (使用GitHub Secret)
           if [ -z "$TERABOX_COOKIE_SECRET" ]; then
