@@ -1,59 +1,76 @@
-name: Install Latest Alist, Reset DB, Set Password, Run with Repo Config
+# .github/workflows/run_with_cloudflare.yml
+name: Run OpenList + Kemono Downloader via Cloudflare Tunnel
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
 
 jobs:
-  install_and_run_job:
+  openlist-kemono:
     runs-on: ubuntu-latest
 
     steps:
-      # 步骤 1: 检出运行工作流的代码库
-      - name: Checkout workflow repository
-        uses: actions/checkout@v4
+    - name: 📥 Checkout
+      uses: actions/checkout@v3
 
-      # 步骤 2: 安装基础工具
-      - name: Install base tools (curl, gpg, git)
-        run: sudo apt-get update && sudo apt-get install -y curl gpg git
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-      # 步骤 3: 安装 cloudflared
-      - name: Create keyrings directory
-        run: sudo mkdir -p --mode=0755 /usr/share/keyrings
-      - name: Download Cloudflare GPG key
-        run: curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/cloudflare-main.gpg
-      - name: Add Cloudflare APT repository
-        run: echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
-      - name: Update package list and install cloudflared
-        run: sudo apt-get update && sudo apt-get install -y cloudflared
-      - name: Verify cloudflared installation
-        run: cloudflared --version
+    - name: Install OpenList
+      run: |
+        curl -fsSL "https://docs.openlist.team/v3.sh" -o v3.sh
+        bash v3.sh install /opt/openlist
 
-      # 步骤 4: 克隆包含 Alist 配置的私有仓库
-      - name: Clone private repository (veiled-journeys)
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+    - name: Configure OpenList password & config
+      run: |
+        cd /opt/openlist
+        ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
+        if [ -d ../../openlist ]; then
+          sudo cp -r ../../openlist/* data/
+        fi
+      env:
+        OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
 
-      - name: Install Python dependencies
-        run: pip install -r veiled-journeys/requirements.txt
+    - name: Start OpenList
+      run: sudo /opt/openlist/openlist start
 
-      # 步骤 9: 安装 Alist 可能需要的其他依赖 (如果需要, 现在是第 9 步)
-      - name: Install image optimization tools
-        run: sudo apt-get update && sudo apt-get install -y jpegoptim optipng
+    - name: Setup cloudflared
+      uses: AnimMouse/setup-cloudflared@v2
 
-      # 步骤 10: 设置脚本执行权限 (现在是第 10 步)
-      - name: Set script execution permission
-        run: chmod +x veiled-journeys/process_loop.sh
+    - name: Establish Cloudflare Tunnel
+      uses: AnimMouse/setup-cloudflared/tunnel@v2
+      with:
+        cloudflare_tunnel_credential: ${{ secrets.CLOUDFLARE_TUNNEL_CREDENTIAL }}
+        cloudflare_tunnel_configuration: ${{ secrets.CLOUDFLARE_TUNNEL_CONFIGURATION }}
+        cloudflare_tunnel_id: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
+      id: tunnel
 
-      # 步骤 11: 启动 Cloudflared Tunnel (现在是第 11 步)
-      - name: Start Cloudflared Tunnel in background
-        working-directory: ./veiled-journeys
-        run: |
-          echo "Starting Cloudflared tunnel..."
-          nohup cloudflared tunnel --config .cloudflared/config.yml run > cloudflared.log 2>&1 &
-          sleep 5
+    - name: Install script dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        sleep 1111111
 
+    - name: Run Kemono Downloader
+      env:
+        OPENLIST_URL: https://your-tunnel-url.cloudflare.com
+        OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
+      run: python kemono_downloader.py
+       
 
-   
+    - name: Teardown Cloudflare Tunnel
+      if: always()
+      uses: AnimMouse/setup-cloudflared/shutdown@v2
+
+    - name: Stop OpenList
+      if: always()
+      run: sudo /opt/openlist/openlist stop
+
+    - name: Upload downloads
+      uses: actions/upload-artifact@v3
+      with:
+        name: kemono-output
+        path: ./output/
