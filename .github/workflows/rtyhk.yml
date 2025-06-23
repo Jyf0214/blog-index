@@ -31,7 +31,7 @@ jobs:
         run: |
           cd /opt/openlist
           
-        - name: Clone private repository (veiled-journeys)
+      - name: Clone private repository (veiled-journeys)
         env:
           PAT: ${{ secrets.PAT }}
         run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
