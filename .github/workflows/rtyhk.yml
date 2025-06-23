@@ -11,11 +11,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 📥 Checkout
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
+    - uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
@@ -24,21 +22,18 @@ jobs:
         curl -fsSL "https://docs.openlist.team/v3.sh" -o v3.sh
         bash v3.sh install /opt/openlist
 
-    - name: Configure OpenList password & config
+    - name: Configure OpenList
       run: |
         cd /opt/openlist
         ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
-        if [ -d ../../openlist ]; then
-          sudo cp -r ../../openlist/* data/
-        fi
+        if [ -d ../../openlist ]; then sudo cp -r ../../openlist/* data/; fi
       env:
         OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
 
     - name: Start OpenList
       run: sudo /opt/openlist/openlist start
 
-    - name: Setup cloudflared
-      uses: AnimMouse/setup-cloudflared@v2
+    - uses: AnimMouse/setup-cloudflared@v2
 
     - name: Establish Cloudflare Tunnel
       uses: AnimMouse/setup-cloudflared/tunnel@v2
@@ -48,20 +43,18 @@ jobs:
         cloudflare_tunnel_id: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
       id: tunnel
 
-    - name: Install script dependencies
+    - name: Install dependencies
       run: |
         pip install --upgrade pip
         pip install -r requirements.txt
-        sleep 1111111
 
     - name: Run Kemono Downloader
       env:
         OPENLIST_URL: https://your-tunnel-url.cloudflare.com
         OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
       run: python kemono_downloader.py
-       
 
-    - name: Teardown Cloudflare Tunnel
+    - name: Teardown Tunnel
       if: always()
       uses: AnimMouse/setup-cloudflared/shutdown@v2
 
@@ -70,7 +63,9 @@ jobs:
       run: sudo /opt/openlist/openlist stop
 
     - name: Upload downloads
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: kemono-output
         path: ./output/
+        compression-level: 0
+        if-no-files-found: error
