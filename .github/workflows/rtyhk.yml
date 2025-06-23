@@ -28,36 +28,38 @@ jobs:
       - name: Install OpenList
         run: |
           curl -fsSL "https://docs.openlist.team/v3.sh" -o v3.sh
-          sudo bash v3.sh install /opt/openlist
+          # 安装到默认路径 /opt/openlist
+          sudo bash v3.sh install
 
-      # 最终修正：所有配置命令使用 openlist-manager
+      # 最终修正：直接调用系统命令，并通过 --data 参数指定数据目录
       - name: Configure OpenList, Add Storage and Restore Data
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
           TERABOX_COOKIE_SECRET: ${{ secrets.TERABOX_COOKIE }}
         run: |
-          cd /opt/openlist
+          # 定义数据目录变量以便复用
+          DATA_DIR="/opt/openlist/data"
           
-          # 1. 设置管理员密码 (使用完整命令)
+          # 1. 设置管理员密码
           echo "Setting admin password..."
-          sudo ./openlist-manager admin set "${{ env.OPENLIST_PASSWORD }}"
+          sudo openlist-manager admin set "${{ env.OPENLIST_PASSWORD }}" --data "$DATA_DIR"
           
-          # 2. 为admin用户启用WebDAV (使用完整命令)
+          # 2. 为admin用户启用WebDAV
           echo "Enabling WebDAV for admin user..."
-          sudo ./openlist-manager user set admin --webdav_policy rw
+          sudo openlist-manager user set admin --webdav_policy rw --data "$DATA_DIR"
           
-          # 3. 添加Terabox存储 (使用完整命令)
+          # 3. 添加Terabox存储
           if [ -z "$TERABOX_COOKIE_SECRET" ]; then
             echo "::warning::TERABOX_COOKIE secret is not set. Skipping Terabox storage."
           else
             echo "Adding Terabox storage at /terabox..."
-            sudo ./openlist-manager storage add terabox /terabox --cookie "${{ env.TERABOX_COOKIE_SECRET }}"
+            sudo openlist-manager storage add terabox /terabox --cookie "${{ env.TERABOX_COOKIE_SECRET }}" --data "$DATA_DIR"
           fi
 
           # 4. 检查并恢复 'openlist-data' 目录中的数据
           if [ -d "${{ github.workspace }}/openlist-data" ]; then
             echo "Found existing data in 'openlist-data'. Restoring..."
-            sudo cp -r ${{ github.workspace }}/openlist-data/* /opt/openlist/data/
+            sudo cp -r ${{ github.workspace }}/openlist-data/* "$DATA_DIR"/
             echo "Data restoration complete."
           else
             echo "No 'openlist-data' directory found. Starting with a fresh instance."
@@ -65,8 +67,8 @@ jobs:
 
       - name: Start OpenList Service
         run: |
-          # 启动服务仍然可以使用快捷命令
-          sudo /opt/openlist/openlist start
+          # 启动服务使用快捷命令
+          sudo openlist start
 
       - name: Install Python dependencies
         run: |
@@ -84,7 +86,7 @@ jobs:
         if: always()
         run: |
           echo "Stopping OpenList service..."
-          sudo /opt/openlist/openlist stop
+          sudo openlist stop
 
       - name: Upload downloads
         uses: actions/upload-artifact@v4
