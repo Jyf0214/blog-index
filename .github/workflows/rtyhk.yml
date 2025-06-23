@@ -11,10 +11,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # 新增步骤：克隆包含下载脚本的私有仓库
+      - name: Clone private downloader repository
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          # 使用 PAT (Personal Access Token) 克隆私有仓库
+          git clone https://x-access-token:${{ env.PAT }}@github.com/Jyf0214/veiled-journeys.git
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          # 根据您的文件，这里使用 3.9
+          python-version: '3.9'
 
       - name: Prepare TERM env
         run: echo "TERM=xterm-256color" >> $GITHUB_ENV
@@ -24,23 +33,23 @@ jobs:
           curl -fsSL "https://docs.openlist.team/v3.sh" -o v3.sh
           sudo bash v3.sh install /opt/openlist
 
+      # 修正后的配置步骤
       - name: Configure OpenList, Add Storage and Restore Data
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
           TERABOX_COOKIE_SECRET: ${{ secrets.TERABOX_COOKIE }}
-          PAT: ${{ secrets.PAT }}
         run: |
           cd /opt/openlist
-          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
-
+          
           # 1. 设置管理员密码
+          echo "Setting admin password..."
           sudo ./openlist admin set "${{ env.OPENLIST_PASSWORD }}"
           
-          # 2. 为admin用户启用WebDAV
+          # 2. 为admin用户启用WebDAV (已修正命令)
           echo "Enabling WebDAV for admin user..."
-          sudo ./openlist admin set admin --webdav_manage=true --webdav_read=true
+          sudo ./openlist user set admin --webdav_policy rw
           
-          # 3. 添加Terabox存储 (使用GitHub Secret)
+          # 3. 添加Terabox存储
           if [ -z "$TERABOX_COOKIE_SECRET" ]; then
             echo "::warning::TERABOX_COOKIE secret is not set. Skipping Terabox storage."
           else
@@ -70,4 +79,11 @@ jobs:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
           echo "Starting downloader, which will connect to OpenList locally."
+          # 运行从私有仓库克隆来的脚本
           python veiled-journeys/kemono_downloader.py
+
+      - name: Stop OpenList Service
+        if: always()
+        run: |
+          echo "Stopping OpenList service..."
+          sudo /opt/openlist/openlist stop
