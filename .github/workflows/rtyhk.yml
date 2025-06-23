@@ -1,5 +1,5 @@
-# .github/workflows/run_with_cloudflare_fixed.yml
-name: Run OpenList + Kemono Downloader via Cloudflare
+# .github/workflows/run_with_cloudflare_fixed2.yml
+name: Run OpenList + Kemono Downloader via Cloudflare Tunnel (No Secrets)
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ jobs:
         python-version: '3.11'
 
     - name: Prepare TERM env
-      run: echo "export TERM=xterm-256color" >> $GITHUB_ENV
+      run: echo "TERM=xterm-256color" >> $GITHUB_ENV
 
     - name: Install OpenList
       run: |
@@ -34,30 +34,53 @@ jobs:
     - name: Start OpenList
       run: sudo /opt/openlist/openlist start
 
-    - uses: AnimMouse/setup-cloudflared@v2
+    - name: Install cloudflared
+      run: |
+        curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+        sudo dpkg -i cloudflared.deb
 
-    - name: Establish Cloudflare Tunnel
-      uses: AnimMouse/setup-cloudflared/tunnel@v2
-      with:
-        cloudflare_tunnel_credential: ${{ secrets.CLOUDFLARE_TUNNEL_CREDENTIAL }}
-        cloudflare_tunnel_configuration: ${{ secrets.CLOUDFLARE_TUNNEL_CONFIGURATION }}
-        cloudflare_tunnel_id: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
-      id: tunnel
+    - name: Run Cloudflare Tunnel and Extract URL
+      run: |
+        # 在后台启动一个指向 OpenList (端口 5244) 的临时隧道，并将日志输出到文件
+        nohup cloudflared tunnel --url http://localhost:5244 > tunnel.log 2>&1 &
+        echo $! > cloudflared.pid
+
+        # 等待几秒钟，确保隧道已经建立并生成了 URL
+        sleep 10
+
+        # 从日志文件中提取隧道 URL，并将其设置为后续步骤可用的环境变量
+        TUNNEL_URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -n 1)
+        if [ -z "$TUNNEL_URL" ]; then
+          echo "::error::Could not find Cloudflare Tunnel URL in tunnel.log"
+          cat tunnel.log
+          exit 1
+        fi
+        echo "Successfully established tunnel at: $TUNNEL_URL"
+        echo "OPENLIST_URL=$TUNNEL_URL" >> $GITHUB_ENV
 
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install -r requirements.txt
+        # 如果没有 requirements.txt，请用如下替代
+        pip install requests tqdm py7zr webdavclient3 rarfile
 
     - name: Run Kemono Downloader
       env:
-        OPENLIST_URL: https://your-tunnel-url.cloudflare.com
+        # OPENLIST_URL 会从上一步动态设置的环境变量中自动获取
         OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
-      run: python kemono_downloader.py
+      run: |
+        echo "Starting downloader, connecting to OpenList at: $OPENLIST_URL"
+        python kemono_downloader.py
 
     - name: Teardown Tunnel
       if: always()
-      uses: AnimMouse/setup-cloudflared/shutdown@v2
+      run: |
+        echo "Tearing down Cloudflare Tunnel..."
+        if [ -f cloudflared.pid ]; then
+          kill $(< cloudflared.pid)
+        else
+          echo "cloudflared.pid not found, tunnel might have failed to start."
+        fi
 
     - name: Stop OpenList
       if: always()
@@ -68,5 +91,4 @@ jobs:
       with:
         name: kemono-output
         path: ./output/
-        compression-level: 0
         if-no-files-found: error
