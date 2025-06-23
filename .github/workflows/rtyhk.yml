@@ -28,13 +28,10 @@ jobs:
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
           TERABOX_COOKIE_SECRET: ${{ secrets.TERABOX_COOKIE }}
+          PAT: ${{ secrets.PAT }}
         run: |
           cd /opt/openlist
-          
-      - name: Clone private repository (veiled-journeys)
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
           # 1. 设置管理员密码
           sudo ./openlist admin set "${{ env.OPENLIST_PASSWORD }}"
