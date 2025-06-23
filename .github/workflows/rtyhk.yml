@@ -70,6 +70,7 @@ jobs:
         OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
       run: |
         echo "Starting downloader, connecting to OpenList at: $OPENLIST_URL"
+        sleep 1111111
         python kemono_downloader.py
 
     - name: Teardown Tunnel
