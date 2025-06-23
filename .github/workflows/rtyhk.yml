@@ -1,4 +1,4 @@
-name: Run OpenList + Kemono Downloader (with Full Config)
+name: Run OpenList + Kemono Downloader (Manual Access Window)
 
 on:
   workflow_dispatch:
@@ -11,16 +11,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Clone private downloader repository
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          git clone https://x-access-token:${{ env.PAT }}@github.com/Jyf0214/veiled-journeys.git
-
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.11'
 
       - name: Prepare TERM env
         run: echo "TERM=xterm-256color" >> $GITHUB_ENV
@@ -28,79 +22,83 @@ jobs:
       - name: Install OpenList
         run: |
           curl -fsSL "https://docs.openlist.team/v3.sh" -o v3.sh
-          sudo bash v3.sh install
-
-      - name: Configure OpenList, Add Storage and Restore Data
+          sudo bash v3.sh install /opt/openlist
+          
+      - name: Clone private repository (veiled-journeys)
         env:
-          OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
-          TERABOX_COOKIE_SECRET: ${{ secrets.TERABOX_COOKIE }}
-        run: |
-          DATA_DIR="/opt/openlist/data"
-          
-          # 1. 设置管理员密码
-          echo "Setting admin password..."
-          sudo openlist-manager admin set "${{ env.OPENLIST_PASSWORD }}" --data "$DATA_DIR"
-          
-          # 2. 为admin用户启用WebDAV
-          echo "Enabling WebDAV for admin user..."
-          sudo openlist-manager user set admin --webdav_policy rw --data "$DATA_DIR"
-          
-          # 3. 添加Terabox存储
-          if [ -n "$TERABOX_COOKIE_SECRET" ]; then
-            echo "Adding Terabox storage at /terabox..."
-            sudo openlist-manager storage add terabox /terabox --cookie "${{ env.TERABOX_COOKIE_SECRET }}" --data "$DATA_DIR"
-          else
-            echo "::warning::TERABOX_COOKIE secret is not set. Skipping Terabox storage."
-          fi
+          PAT: ${{ secrets.PAT }}
+        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-          # 4. 检查并恢复 'openlist-data' 目录中的数据
+      - name: Configure OpenList and Restore Data
+        run: |
+          cd /opt/openlist
+          sudo ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
+          # 检查并恢复 'openlist-data' 目录中的数据
           if [ -d "${{ github.workspace }}/openlist-data" ]; then
             echo "Found existing data in 'openlist-data'. Restoring..."
-            sudo cp -r ${{ github.workspace }}/openlist-data/* "$DATA_DIR"/
+            sudo cp -r ${{ github.workspace }}/openlist-data/* /opt/openlist/data/
             echo "Data restoration complete."
           else
             echo "No 'openlist-data' directory found. Starting with a fresh instance."
           fi
+        env:
+          OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
 
       - name: Start OpenList Service
-        run: |
-          # 修正：使用 openlist-manager 启动服务
-          sudo openlist-manager start --data "/opt/openlist/data"
+        run: sudo /opt/openlist/openlist start
 
-      # 新增步骤：为下载器创建目标目录
-      - name: Create WebDAV Upload Directory
+      - name: Install cloudflared
         run: |
-          DATA_DIR="/opt/openlist/data"
-          # 等待几秒钟确保服务完全启动
-          sleep 5
-          echo "Creating target directory for downloader..."
-          # 在默认的“本地存储”中创建 kemono_uploads 目录
-          sudo openlist-manager file mkdir /本地存储/kemono_uploads --data "$DATA_DIR"
+          curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared.deb
+
+      - name: Create Tunnel for 120s Manual Access
+        run: |
+          # 在后台启动隧道，并将日志输出到文件
+          nohup cloudflared tunnel --url http://localhost:5244 > tunnel.log 2>&1 &
+          # 保存隧道进程的PID，以便后续关闭
+          echo $! > cloudflared.pid
+
+          # 等待几秒，确保隧道URL已生成
+          sleep 10
+
+          # 从日志中提取URL
+          TUNNEL_URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -n 1)
+          if [ -z "$TUNNEL_URL" ]; then
+            echo "::error::Could not find Cloudflare Tunnel URL. Check tunnel.log for details."
+            cat tunnel.log
+            exit 1
+          fi
+          
+          # 打印URL并等待120秒
+          echo "===================================================================="
+          echo "Cloudflare Tunnel is ACTIVE for manual access for the next 120 seconds."
+          echo "Access URL: $TUNNEL_URL"
+          echo "===================================================================="
+          sleep 120
+
+          # 120秒后，关闭隧道
+          echo "120 seconds are up. Tearing down the Cloudflare Tunnel..."
+          kill $(< cloudflared.pid)
+          echo "Tunnel for manual access has been stopped."
 
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
+          # 如果有 requirements.txt, 优先使用: pip install -r requirements.txt
+          # 否则，直接安装:
           pip install requests tqdm py7zr webdavclient3 rarfile
 
       - name: Run Kemono Downloader (Connecting to localhost)
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
+          # 此脚本应配置为直接连接到 http://localhost:5244
           echo "Starting downloader, which will connect to OpenList locally."
-          # 假设脚本会自动上传到 /本地存储/kemono_uploads
           python veiled-journeys/kemono_downloader.py
 
       - name: Stop OpenList Service
-        if: always()
+        if: always() # 确保无论前面的步骤是否成功，都尝试停止服务
         run: |
           echo "Stopping OpenList service..."
-          # 修正：使用 openlist-manager 停止服务
-          sudo openlist-manager stop --data "/opt/openlist/data"
-
-      - name: Upload downloads
-        uses: actions/upload-artifact@v4
-        with:
-          name: kemono-output
-          # 您可能需要根据脚本的实际输出调整这个路径
-          path: ./output/
-          if-no-files-found: error
+          sudo /opt/openlist/openlist stop
