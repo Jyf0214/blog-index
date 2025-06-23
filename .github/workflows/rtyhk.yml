@@ -1,5 +1,4 @@
-# .github/workflows/run_with_cloudflare_fixed2.yml
-name: Run OpenList + Kemono Downloader via Cloudflare Tunnel (No Secrets)
+name: Run OpenList + Kemono Downloader (Manual Access Window)
 
 on:
   workflow_dispatch:
@@ -9,87 +8,91 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-    - name: Prepare TERM env
-      run: echo "TERM=xterm-256color" >> $GITHUB_ENV
+      - name: Prepare TERM env
+        run: echo "TERM=xterm-256color" >> $GITHUB_ENV
 
-    - name: Install OpenList
-      run: |
-        curl -fsSL "https://docs.openlist.team/v3.sh" -o v3.sh
-        sudo bash v3.sh install /opt/openlist
+      - name: Clone private repository (veiled-journeys)
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-    - name: Configure OpenList
-      run: |
-        cd /opt/openlist
-        sudo ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
-        if [ -d ../../openlist ]; then sudo cp -r ../../openlist/* data/; fi
-      env:
-        OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
+      - name: Install OpenList
+        run: |
+          curl -fsSL "https://docs.openlist.team/v3.sh" -o v3.sh
+          sudo bash v3.sh install /opt/openlist
 
-    - name: Start OpenList
-      run: sudo /opt/openlist/openlist start
+      - name: Configure OpenList and Restore Data
+        run: |
+          cd /opt/openlist
+          # 设置管理员密码
+          sudo ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
+          # 检查是否存在旧数据文件夹，如果存在则恢复数据
+          if [ -d "${{ github.workspace }}/veiled-journeys/openlist-data" ]; then
+            echo "Found existing data in 'openlist-data' directory. Restoring..."
+            sudo mkdir -p /opt/openlist/data
+            sudo cp -r ${{ github.workspace }}/veiled-journeys/openlist-data/* /opt/openlist/data/
+            echo "Data restoration complete."
+          else
+            echo "No 'openlist-data' directory found. Starting with a fresh instance."
+          fi
+        env:
+          OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
 
-    - name: Install cloudflared
-      run: |
-        curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-        sudo dpkg -i cloudflared.deb
+      - name: Start OpenList
+        run: sudo /opt/openlist/openlist start
 
-    - name: Run Cloudflare Tunnel and Extract URL
-      run: |
-        # 在后台启动一个指向 OpenList (端口 5244) 的临时隧道，并将日志输出到文件
-        nohup cloudflared tunnel --url http://localhost:5244 > tunnel.log 2>&1 &
-        echo $! > cloudflared.pid
+      - name: Install cloudflared
+        run: |
+          curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared.deb
 
-        # 等待几秒钟，确保隧道已经建立并生成了 URL
-        sleep 10
+      - name: Provide 120s Manual Access via Cloudflare Tunnel
+        run: |
+          echo "Starting Cloudflare Tunnel for 120 seconds for manual access..."
+          # 在后台启动隧道，并将日志输出到文件
+          nohup cloudflared tunnel --url http://localhost:5244 > tunnel.log 2>&1 &
+          # 保存隧道进程的PID
+          CLOUDFLARED_PID=$!
+          
+          # 等待几秒钟，确保隧道URL已生成
+          sleep 10
+          
+          TUNNEL_URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -n 1)
+          if [ -z "$TUNNEL_URL" ]; then
+            echo "::warning::Could not find Cloudflare Tunnel URL. Check tunnel.log for errors."
+            cat tunnel.log
+          else
+            echo "===================================================================="
+            echo "MANUAL ACCESS URL (available for ~110 seconds):"
+            echo "$TUNNEL_URL"
+            echo "===================================================================="
+          fi
+          
+          # 等待剩余的时间
+          echo "Workflow paused for manual interaction. Will resume in 110 seconds."
+          sleep 110
+          
+          echo "120-second window has passed. Tearing down the tunnel now."
+          kill $CLOUDFLARED_PID
+          echo "Tunnel stopped. Proceeding with the local downloader script."
 
-        # 从日志文件中提取隧道 URL，并将其设置为后续步骤可用的环境变量
-        TUNNEL_URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -n 1)
-        if [ -z "$TUNNEL_URL" ]; then
-          echo "::error::Could not find Cloudflare Tunnel URL in tunnel.log"
-          cat tunnel.log
-          exit 1
-        fi
-        echo "Successfully established tunnel at: $TUNNEL_URL"
-        echo "OPENLIST_URL=$TUNNEL_URL" >> $GITHUB_ENV
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests tqdm py7zr webdavclient3 rarfile
 
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        # 如果没有 requirements.txt，请用如下替代
-        pip install requests tqdm py7zr webdavclient3 rarfile
-
-    - name: Run Kemono Downloader
-      env:
-        # OPENLIST_URL 会从上一步动态设置的环境变量中自动获取
-        OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
-      run: |
-        echo "Starting downloader, connecting to OpenList at: $OPENLIST_URL"
-        sleep 1111111
-        python kemono_downloader.py
-
-    - name: Teardown Tunnel
-      if: always()
-      run: |
-        echo "Tearing down Cloudflare Tunnel..."
-        if [ -f cloudflared.pid ]; then
-          kill $(< cloudflared.pid)
-        else
-          echo "cloudflared.pid not found, tunnel might have failed to start."
-        fi
-
-    - name: Stop OpenList
-      if: always()
-      run: sudo /opt/openlist/openlist stop
-
-    - name: Upload downloads
-      uses: actions/upload-artifact@v4
-      with:
-        name: kemono-output
-        path: ./output/
-        if-no-files-found: error
+      - name: Run Kemono Downloader (connecting to localhost)
+        env:
+          # 脚本直接连接 localhost，无需 OPENLIST_URL 环境变量
+          OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
+        run: |
+          echo "Starting downloader, connecting to OpenList at localhost:5244"
+          python veiled-journeys/kemono_downloader.py
