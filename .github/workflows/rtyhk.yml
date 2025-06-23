@@ -28,16 +28,13 @@ jobs:
       - name: Install OpenList
         run: |
           curl -fsSL "https://docs.openlist.team/v3.sh" -o v3.sh
-          # 安装到默认路径 /opt/openlist
           sudo bash v3.sh install
 
-      # 最终修正：直接调用系统命令，并通过 --data 参数指定数据目录
       - name: Configure OpenList, Add Storage and Restore Data
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
           TERABOX_COOKIE_SECRET: ${{ secrets.TERABOX_COOKIE }}
         run: |
-          # 定义数据目录变量以便复用
           DATA_DIR="/opt/openlist/data"
           
           # 1. 设置管理员密码
@@ -49,11 +46,11 @@ jobs:
           sudo openlist-manager user set admin --webdav_policy rw --data "$DATA_DIR"
           
           # 3. 添加Terabox存储
-          if [ -z "$TERABOX_COOKIE_SECRET" ]; then
-            echo "::warning::TERABOX_COOKIE secret is not set. Skipping Terabox storage."
-          else
+          if [ -n "$TERABOX_COOKIE_SECRET" ]; then
             echo "Adding Terabox storage at /terabox..."
             sudo openlist-manager storage add terabox /terabox --cookie "${{ env.TERABOX_COOKIE_SECRET }}" --data "$DATA_DIR"
+          else
+            echo "::warning::TERABOX_COOKIE secret is not set. Skipping Terabox storage."
           fi
 
           # 4. 检查并恢复 'openlist-data' 目录中的数据
@@ -67,8 +64,18 @@ jobs:
 
       - name: Start OpenList Service
         run: |
-          # 启动服务使用快捷命令
-          sudo openlist start
+          # 修正：使用 openlist-manager 启动服务
+          sudo openlist-manager start --data "/opt/openlist/data"
+
+      # 新增步骤：为下载器创建目标目录
+      - name: Create WebDAV Upload Directory
+        run: |
+          DATA_DIR="/opt/openlist/data"
+          # 等待几秒钟确保服务完全启动
+          sleep 5
+          echo "Creating target directory for downloader..."
+          # 在默认的“本地存储”中创建 kemono_uploads 目录
+          sudo openlist-manager file mkdir /本地存储/kemono_uploads --data "$DATA_DIR"
 
       - name: Install Python dependencies
         run: |
@@ -80,17 +87,20 @@ jobs:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
           echo "Starting downloader, which will connect to OpenList locally."
+          # 假设脚本会自动上传到 /本地存储/kemono_uploads
           python veiled-journeys/kemono_downloader.py
 
       - name: Stop OpenList Service
         if: always()
         run: |
           echo "Stopping OpenList service..."
-          sudo openlist stop
+          # 修正：使用 openlist-manager 停止服务
+          sudo openlist-manager stop --data "/opt/openlist/data"
 
       - name: Upload downloads
         uses: actions/upload-artifact@v4
         with:
           name: kemono-output
+          # 您可能需要根据脚本的实际输出调整这个路径
           path: ./output/
           if-no-files-found: error
