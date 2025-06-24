@@ -82,7 +82,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install requests tqdm py7zr webdavclient3 rarfile
+          pip install requests tqdm py7zr webdavclient3 rarfile mega.py
 
       - name: Run Kemono Downloader (Connecting to localhost)
         env:
