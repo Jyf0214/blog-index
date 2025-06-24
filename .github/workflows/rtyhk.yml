@@ -72,6 +72,7 @@ jobs:
           echo "===================================================================="
           echo "Cloudflare Tunnel is ACTIVE for manual access for the next 120 seconds."
           echo "Access URL: $TUNNEL_URL"
+          echo "Admin Password: (Set in secrets)"
           echo "===================================================================="
           sleep 120
 
@@ -101,13 +102,21 @@ jobs:
           # --delete 选项会删除目标目录中源目录不存在的文件，保持完全同步
           sudo rsync -av --delete /opt/openlist/data/ ./openlist-data/
           
+          # ==================================
+          # ===          FIX HERE          ===
+          # ==================================
+          # 修正权限：将 rsync (sudo) 创建的文件所有权还给当前用户 (runner)
+          # 否则 git 命令将没有权限读取这些文件，导致无法检测到更改
+          echo "Fixing permissions for git..."
+          sudo chown -R $(whoami):$(whoami) ./openlist-data/
+          
           # 配置 Git
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           
           # 添加、提交并推送数据
-          # 首先检查是否有文件更改
-          if [[ -z $(git status -s) ]]; then
+          # 使用 --porcelain 检查是否有未提交的更改，这比 -s 更适合脚本
+          if [[ -z $(git status --porcelain) ]]; then
             echo "No changes in OpenList data. Nothing to commit."
           else
             echo "Changes detected. Committing and pushing to repository..."
@@ -122,4 +131,8 @@ jobs:
         if: always() # 确保无论前面的步骤是否成功，都尝试停止服务
         run: |
           echo "Stopping OpenList service..."
+          # ==================================
+          # ===          FIX HERE          ===
+          # ==================================
+          # 修正了命令末尾多余的字符串
           sudo /opt/openlist/openlist stop
