@@ -107,7 +107,7 @@ jobs:
           cd ${{ github.workspace }}/veiled-journeys
           
           sudo rsync -av --delete /opt/openlist/data/ ./openlist-data/
-          git pull
+          
           echo "Fixing permissions for git..."
           sudo chown -R $(whoami):$(whoami) ./openlist-data/
           
