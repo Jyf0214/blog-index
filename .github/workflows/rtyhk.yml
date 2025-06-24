@@ -1,4 +1,4 @@
-name: Run OpenList + Kemono Downloader (Manual Access Window)
+name: Run OpenList + Kemono Downloader (Manual Access Window & Data Persistence)
 
 on:
   workflow_dispatch:
@@ -32,14 +32,19 @@ jobs:
       - name: Configure OpenList and Restore Data
         run: |
           cd /opt/openlist
+          echo "Setting OpenList admin password..."
           sudo ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
-          # 检查并恢复 'openlist-data' 目录中的数据
-          if [ -d "${{ github.workspace }}/openlist-data" ]; then
-            echo "Found existing data in 'openlist-data'. Restoring..."
-            sudo cp -r ${{ github.workspace }}/openlist-data/* /opt/openlist/data/
+          
+          # 检查并从 veiled-journeys 仓库恢复数据
+          if [ -d "${{ github.workspace }}/veiled-journeys/openlist-data" ]; then
+            echo "Found existing data in 'veiled-journeys/openlist-data'. Restoring..."
+            # 使用 rsync 可以更高效地同步文件
+            sudo rsync -av --delete ${{ github.workspace }}/veiled-journeys/openlist-data/ /opt/openlist/data/
             echo "Data restoration complete."
           else
-            echo "No 'openlist-data' directory found. Starting with a fresh instance."
+            echo "No 'openlist-data' directory found in repository. Starting with a fresh instance."
+            # 确保数据目录存在，以便后续备份
+            sudo mkdir -p /opt/openlist/data
           fi
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
@@ -54,15 +59,9 @@ jobs:
 
       - name: Create Tunnel for 120s Manual Access
         run: |
-          # 在后台启动隧道，并将日志输出到文件
           nohup cloudflared tunnel --url http://localhost:5244 > tunnel.log 2>&1 &
-          # 保存隧道进程的PID，以便后续关闭
           echo $! > cloudflared.pid
-
-          # 等待几秒，确保隧道URL已生成
           sleep 10
-
-          # 从日志中提取URL
           TUNNEL_URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -n 1)
           if [ -z "$TUNNEL_URL" ]; then
             echo "::error::Could not find Cloudflare Tunnel URL. Check tunnel.log for details."
@@ -70,14 +69,12 @@ jobs:
             exit 1
           fi
           
-          # 打印URL并等待120秒
           echo "===================================================================="
           echo "Cloudflare Tunnel is ACTIVE for manual access for the next 120 seconds."
           echo "Access URL: $TUNNEL_URL"
           echo "===================================================================="
           sleep 120
 
-          # 120秒后，关闭隧道
           echo "120 seconds are up. Tearing down the Cloudflare Tunnel..."
           kill $(< cloudflared.pid)
           echo "Tunnel for manual access has been stopped."
@@ -85,17 +82,41 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          # 如果有 requirements.txt, 优先使用: pip install -r requirements.txt
-          # 否则，直接安装:
           pip install requests tqdm py7zr webdavclient3 rarfile
 
       - name: Run Kemono Downloader (Connecting to localhost)
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
-          # 此脚本应配置为直接连接到 http://localhost:5244
           echo "Starting downloader, which will connect to OpenList locally."
           python veiled-journeys/kemono_downloader.py
+
+      - name: Backup and Commit OpenList Data
+        if: always() # 确保即使下载失败，也尝试备份数据
+        run: |
+          echo "Backing up OpenList data to the repository..."
+          cd ${{ github.workspace }}/veiled-journeys
+          
+          # 从 OpenList 运行时目录同步数据到 Git 仓库克隆
+          # --delete 选项会删除目标目录中源目录不存在的文件，保持完全同步
+          sudo rsync -av --delete /opt/openlist/data/ ./openlist-data/
+          
+          # 配置 Git
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          
+          # 添加、提交并推送数据
+          # 首先检查是否有文件更改
+          if [[ -z $(git status -s) ]]; then
+            echo "No changes in OpenList data. Nothing to commit."
+          else
+            echo "Changes detected. Committing and pushing to repository..."
+            git add openlist-data
+            # [skip ci] 防止在 veiled-journeys 仓库中触发CI循环
+            git commit -m "chore: Backup OpenList data from workflow run" -m "[skip ci]"
+            git push
+            echo "Data backup complete."
+          fi
 
       - name: Stop OpenList Service
         if: always() # 确保无论前面的步骤是否成功，都尝试停止服务
