@@ -46,37 +46,6 @@ jobs:
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
 
-      - name: Start OpenList Service
-        run: sudo /opt/openlist/openlist start
-
-      - name: Install cloudflared
-        run: |
-          curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-          sudo dpkg -i cloudflared.deb
-
-      - name: Create Tunnel for 120s Manual Access
-        run: |
-          nohup cloudflared tunnel --url http://localhost:5244 > tunnel.log 2>&1 &
-          echo $! > cloudflared.pid
-          sleep 10
-          TUNNEL_URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -n 1)
-          if [ -z "$TUNNEL_URL" ]; then
-            echo "::error::Could not find Cloudflare Tunnel URL. Check tunnel.log for details."
-            cat tunnel.log
-            exit 1
-          fi
-          
-          echo "===================================================================="
-          echo "Cloudflare Tunnel is ACTIVE for manual access for the next 120 seconds."
-          echo "Access URL: $TUNNEL_URL"
-          echo "Admin Password: (Set in secrets)"
-          echo "===================================================================="
-          sleep 120
-
-          echo "120 seconds are up. Tearing down the Cloudflare Tunnel..."
-          kill $(< cloudflared.pid)
-          echo "Tunnel for manual access has been stopped."
-
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
