@@ -88,27 +88,8 @@ jobs:
       - name: Install megadl CLI tool (from binary)
         run: |
           echo "Downloading pre-compiled megadl binary..."
-          # 获取最新版本的下载 URL for linux_amd64
-          MEGADL_URL=$(curl -s https://api.github.com/repos/Jacke/megadl/releases/latest | grep "browser_download_url.*linux_amd64" | cut -d '"' -f 4)
-          
-          if [ -z "$MEGADL_URL" ]; then
-            echo "::error::Could not find megadl release URL for linux_amd64. Exiting."
-            # 打印API响应以供调试
-            curl -s https://api.github.com/repos/Jacke/megadl/releases/latest
-            exit 1
-          fi
-
-          echo "Downloading from $MEGADL_URL"
-          # 下载二进制文件的压缩包
-          curl -L -o megadl.tar.gz "$MEGADL_URL"
-          
-          # 解压
-          tar -xzf megadl.tar.gz
-          
-          # 将二进制文件移动到系统路径中，并赋予执行权限
-          sudo mv megadl /usr/local/bin/
-          sudo chmod +x /usr/local/bin/megadl
-          
+          sudo apt update
+          sudo apt install megatools
           echo "Verifying megadl installation..."
           megadl --version
 
