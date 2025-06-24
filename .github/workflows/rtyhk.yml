@@ -35,15 +35,12 @@ jobs:
           echo "Setting OpenList admin password..."
           sudo ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
           
-          # 检查并从 veiled-journeys 仓库恢复数据
           if [ -d "${{ github.workspace }}/veiled-journeys/openlist-data" ]; then
             echo "Found existing data in 'veiled-journeys/openlist-data'. Restoring..."
-            # 使用 rsync 可以更高效地同步文件
             sudo rsync -av --delete ${{ github.workspace }}/veiled-journeys/openlist-data/ /opt/openlist/data/
             echo "Data restoration complete."
           else
             echo "No 'openlist-data' directory found in repository. Starting with a fresh instance."
-            # 确保数据目录存在，以便后续备份
             sudo mkdir -p /opt/openlist/data
           fi
         env:
@@ -86,15 +83,31 @@ jobs:
           pip install requests tqdm py7zr webdavclient3 rarfile
 
       # ==================================
-      # ===    NEW STEP ADDED HERE     ===
+      # ===    NEW FIXED STEP HERE     ===
       # ==================================
-      - name: Install megadl CLI tool
+      - name: Install megadl CLI tool (from binary)
         run: |
-          echo "Installing megadl via Go..."
-          go install github.com/Jacke/megadl@latest
+          echo "Downloading pre-compiled megadl binary..."
+          # 获取最新版本的下载 URL for linux_amd64
+          MEGADL_URL=$(curl -s https://api.github.com/repos/Jacke/megadl/releases/latest | grep "browser_download_url.*linux_amd64" | cut -d '"' -f 4)
           
-          # 将 Go 的 bin 目录添加到 GitHub Actions 的 PATH 中，以便后续步骤可以找到 megadl
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          if [ -z "$MEGADL_URL" ]; then
+            echo "::error::Could not find megadl release URL for linux_amd64. Exiting."
+            # 打印API响应以供调试
+            curl -s https://api.github.com/repos/Jacke/megadl/releases/latest
+            exit 1
+          fi
+
+          echo "Downloading from $MEGADL_URL"
+          # 下载二进制文件的压缩包
+          curl -L -o megadl.tar.gz "$MEGADL_URL"
+          
+          # 解压
+          tar -xzf megadl.tar.gz
+          
+          # 将二进制文件移动到系统路径中，并赋予执行权限
+          sudo mv megadl /usr/local/bin/
+          sudo chmod +x /usr/local/bin/megadl
           
           echo "Verifying megadl installation..."
           megadl --version
@@ -107,37 +120,31 @@ jobs:
           python veiled-journeys/kemono_downloader.py
 
       - name: Backup and Commit OpenList Data
-        if: always() # 确保即使下载失败，也尝试备份数据
+        if: always()
         run: |
           echo "Backing up OpenList data to the repository..."
           cd ${{ github.workspace }}/veiled-journeys
           
-          # 从 OpenList 运行时目录同步数据到 Git 仓库克隆
-          # --delete 选项会删除目标目录中源目录不存在的文件，保持完全同步
           sudo rsync -av --delete /opt/openlist/data/ ./openlist-data/
           
-          # 修正权限：将 rsync (sudo) 创建的文件所有权还给当前用户 (runner)
           echo "Fixing permissions for git..."
           sudo chown -R $(whoami):$(whoami) ./openlist-data/
           
-          # 配置 Git
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           
-          # 添加、提交并推送数据
           if [[ -z $(git status --porcelain) ]]; then
             echo "No changes in OpenList data. Nothing to commit."
           else
             echo "Changes detected. Committing and pushing to repository..."
             git add openlist-data
-            # [skip ci] 防止在 veiled-journeys 仓库中触发CI循环
             git commit -m "chore: Backup OpenList data from workflow run" -m "[skip ci]"
             git push
             echo "Data backup complete."
           fi
 
       - name: Stop OpenList Service
-        if: always() # 确保无论前面的步骤是否成功，都尝试停止服务
+        if: always()
         run: |
           echo "Stopping OpenList service..."
           sudo /opt/openlist/openlist stop
