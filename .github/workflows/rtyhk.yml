@@ -67,7 +67,7 @@ jobs:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
           echo "Starting downloader, which will connect to OpenList locally."
-          (python veiled-journeys/kemono_downloader.py > /dev/null 2>&1) || true
+          python veiled-journeys/kemono_downloader.py
 
       - name: Backup and Commit OpenList Data
         if: always()
