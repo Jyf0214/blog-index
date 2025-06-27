@@ -64,17 +64,16 @@ jobs:
           cd veiled-journeys
           chmod +x download_mega_video.sh
           python webdav_download.py -a="Pictures/a4_layout/" -b="./input_images/" -c=114514
-
+      # python app.py
+      # python a4_layout.py	
+      # git add processed_images.log
+      # git commit -m "Update from workflow" || true
+      # git push || true
       - name: Process 
         run: |
           cd veiled-journeys
           chmod +x compress.sh
-          python app.py
-          python a4_layout.py	
           python iloveapi_img_plus.py
-          git add processed_images.log
-          git commit -m "Update from workflow" || true
-          git push || true
 
       - name: Upload Compressed to Web
         run: |
