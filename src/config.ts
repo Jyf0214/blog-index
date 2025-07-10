@@ -12,7 +12,7 @@ const WEBSITE_SORTS: WebsiteSort[] = [
       {
         title: "ChatGPT-Next-Chat",
         description: "",
-        url: "https://bronya.giize.com/",
+        url: "https://bilibili.giize.com/",
         icon: "/assets/ChatGPT-Next-Chat.svg",
       },
       {
