@@ -68,6 +68,7 @@ jobs:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
           echo "Starting downloader, which will connect to OpenList locally."
+          pip install webdavclient3
           python veiled-journeys/kemono_downloader.py || true
 
       - name: Backup and Commit OpenList Data
