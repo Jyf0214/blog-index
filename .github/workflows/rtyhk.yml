@@ -23,7 +23,8 @@ jobs:
         run: |
           curl -fsSL "https://docs.openlist.team/v3.sh" -o v3.sh
           sudo bash v3.sh install /opt/openlist
-          
+          pip install webdavclient3
+
       - name: Clone private repository (veiled-journeys)
         env:
           PAT: ${{ secrets.PAT }}
