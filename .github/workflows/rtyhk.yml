@@ -118,7 +118,7 @@ jobs:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
           echo "Running Kemono Downloader..."
-          python ${{ github.workspace }}/veiled-journeys/kemono_downloader.py
+          sleep 1
           echo "Kemono Downloader finished."
 
       - name: Manual Access Window (Optional)
@@ -127,7 +127,7 @@ jobs:
           echo "保持工作流活跃，以便手动访问。请检查日志以获取OpenList/下载器输出。"
           echo "如果Localtunnel已启动，其访问URL为: ${{ env.LOCALTUNNEL_URL }}"
           # 将作业保持活跃2小时（7200秒）。您可以根据需要调整此持续时间。
-          sleep 7200
+          sleep 1600
           echo "手动访问窗口关闭。"
 
       - name: Stop Services and Backup Data
