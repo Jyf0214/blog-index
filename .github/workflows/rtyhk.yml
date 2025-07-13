@@ -29,7 +29,7 @@ jobs:
 
       - name: Clone private repository (veiled-journeys)
         env:
-          PAT: ${{ secrets.PAT }}
+          PAT: ${{ secrets.PAT }} # 保持 PAT 秘密在此处可用
         run: |
           echo "Cloning private repository veiled-journeys..."
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
@@ -40,7 +40,7 @@ jobs:
           echo "Configuring OpenList and restoring data..."
           cd /opt/openlist
           echo "Setting OpenList admin password..."
-          sudo ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
+          sudo ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}" # 保持 OpenList 密码秘密在此处可用
           
           DATA_RESTORED="false"
           if [ -d "${{ github.workspace }}/veiled-journeys/openlist-data" ]; then
@@ -55,7 +55,7 @@ jobs:
           echo "data_restored=$DATA_RESTORED" >> $GITHUB_OUTPUT
           echo "Data restoration status: $DATA_RESTORED"
         env:
-          OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
+          OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }} # 再次确认 OpenList 密码秘密在此处可用
 
       - name: Install Python dependencies
         run: |
@@ -71,20 +71,21 @@ jobs:
           echo "Verifying megadl installation..."
           megadl --version
 
-      - name: Install Localtunnel (npm package)
+      - name: Install Cloudflare Tunnel (cloudflared)
         run: |
-          echo "Installing localtunnel via npm..."
-          npm install -g localtunnel
-          echo "Verifying localtunnel installation..."
-          lt --version || true # Use || true as --version might exit with 1 sometimes
+          echo "Downloading and installing Cloudflare Tunnel client (cloudflared)..."
+          curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o cloudflared
+          sudo mv cloudflared /usr/local/bin/cloudflared
+          sudo chmod +x /usr/local/bin/cloudflared
+          echo "Verifying cloudflared installation..."
+          cloudflared --version
 
-      - name: Start OpenList and Conditionally Start Localtunnel
+      - name: Start OpenList and Conditionally Start Cloudflare Tunnel (free mode)
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
           echo "Starting OpenList in the background..."
           sudo /opt/openlist/openlist start &
-          # 捕获 OpenList 进程ID以供后续清理
           echo "OPENLIST_PID=$!" >> $GITHUB_ENV
           echo "OpenList started with PID ${OPENLIST_PID:-<unknown>}."
           
@@ -92,25 +93,29 @@ jobs:
           sleep 10
           
           if [ "${{ steps.configure-openlist-data.outputs.data_restored }}" == "false" ]; then
-            echo "OpenList数据未找到或未恢复。启动Localtunnel以进行潜在的手动设置/调试..."
-            # 启动 localtunnel 并捕获其输出中的URL和进程ID
-            # 2>&1 将 stderr 合并到 stdout，然后grep/sed从其中提取URL
-            LOCALTUNNEL_OUTPUT=$(lt --port 5244 2>&1 &) # 以后台运行
-            echo "$LOCALTUNNEL_OUTPUT" # 打印所有输出，以便调试
+            echo "OpenList数据未找到或未恢复。启动Cloudflare Tunnel (免费模式)以进行潜在的手动设置/调试..."
+            # 启动 cloudflared tunnel --url 并将其输出到文件，以便安全地在后台运行并捕获URL
+            cloudflared tunnel --url http://localhost:5244 > cloudflared_tunnel.log 2>&1 &
+            echo "TUNNEL_PID=$!" >> $GITHUB_ENV # 捕获PID
+            echo "Cloudflare Tunnel (free mode) started with PID ${TUNNEL_PID:-<unknown>}."
             
-            # 提取 URL，并设置一个变量来存储它。这个可能需要根据实际输出格式调整。
-            # LocalTunnel输出通常是 'your url is: https://<random-id>.loca.lt'
-            LOCALTUNNEL_URL=$(echo "$LOCALTUNNEL_OUTPUT" | grep -o 'https://[^ ]*\.loca\.lt')
+            # 留出一些时间让隧道启动并生成URL
+            sleep 10
             
-            echo "LOCALTUNNEL_URL=$LOCALTUNNEL_URL" >> $GITHUB_ENV # 存储URL以便后续输出
-            echo "Localtunnel started with URL: $LOCALTUNNEL_URL"
+            # 从日志文件中提取URL
+            CLOUDFLARED_URL=$(grep -o 'https://[^ ]*\.trycloudflare\.com' cloudflared_tunnel.log | head -n 1)
             
-            # 捕获 Localtunnel 进程ID
-            echo "LOCALTUNNEL_PID=$(jobs -p | xargs basename | tail -n 1)" >> $GITHUB_ENV # 获取最新后台进程的PID
-            echo "Localtunnel started with PID ${LOCALTUNNEL_PID:-<unknown>}."
-            sleep 5 # 给隧道建立连接留出时间
+            echo "CLOUDFLARED_URL=$CLOUDFLARED_URL" >> $GITHUB_ENV
+            echo "Cloudflare Tunnel (免费模式) 访问URL为: $CLOUDFLARED_URL"
+            if [ -z "$CLOUDFLARED_URL" ]; then
+              echo "警告: 未能从Cloudflare Tunnel输出中提取到URL。请检查日志文件 'cloudflared_tunnel.log' 以获取详细信息。"
+              cat cloudflared_tunnel.log
+            fi
+            
+            echo "隧道建立连接留出时间..."
+            sleep 5
           else
-            echo "OpenList数据已恢复。跳过Localtunnel启动。"
+            echo "OpenList数据已恢复。跳过Cloudflare Tunnel (免费模式) 启动。"
           fi
 
       - name: Run Kemono Downloader
@@ -118,16 +123,20 @@ jobs:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
           echo "Running Kemono Downloader..."
-          sleep 1
+          
           echo "Kemono Downloader finished."
 
       - name: Manual Access Window (Optional)
-        # 提供一个固定的等待窗口，无论隧道是否启动，都可以用于检查日志等
         run: |
           echo "保持工作流活跃，以便手动访问。请检查日志以获取OpenList/下载器输出。"
-          echo "如果Localtunnel已启动，其访问URL为: ${{ env.LOCALTUNNEL_URL }}"
+          # 如果 Cloudflare Tunnel (免费模式) 启动了，在这里再次打印其URL，方便查看。
+          if [ -n "${{ env.CLOUDFLARED_URL }}" ]; then
+            echo "Cloudflare Tunnel (免费模式) 访问URL为: ${{ env.CLOUDFLARED_URL }}"
+          else
+            echo "Cloudflare Tunnel (免费模式) 未启动或URL未能提取。"
+          fi
           # 将作业保持活跃2小时（7200秒）。您可以根据需要调整此持续时间。
-          sleep 1600
+          sleep 2000
           echo "手动访问窗口关闭。"
 
       - name: Stop Services and Backup Data
@@ -135,14 +144,14 @@ jobs:
         run: |
           echo "Stopping services and backing up OpenList data..."
           
-          # 如果 Localtunnel 已启动，则停止它
-          if [ -n "${{ env.LOCALTUNNEL_PID }}" ]; then # 检查 LOCALTUNNEL_PID 是否已设置
-            echo "Stopping Localtunnel (PID ${{ env.LOCALTUNNEL_PID }})..."
-            kill ${{ env.LOCALTUNNEL_PID }} || true # 使用 kill 命令停止，|| true 防止命令失败导致整个步骤失败
+          # 如果 Cloudflare Tunnel (免费模式) 已启动，则停止它
+          if [ -n "${{ env.TUNNEL_PID }}" ]; then
+            echo "Stopping Cloudflare Tunnel (PID ${{ env.TUNNEL_PID }})..."
+            kill ${{ env.TUNNEL_PID }} || true
           fi
           
           # 停止 OpenList 服务
-          if [ -n "${{ env.OPENLIST_PID }}" ]; then # 检查 OPENLIST_PID 是否已设置
+          if [ -n "${{ env.OPENLIST_PID }}" ]; then
             echo "Stopping OpenList (PID ${{ env.OPENLIST_PID }})..."
             sudo kill ${{ env.OPENLIST_PID }} || sudo /opt/openlist/openlist stop || true
           else
