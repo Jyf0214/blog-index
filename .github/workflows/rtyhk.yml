@@ -136,7 +136,7 @@ jobs:
             echo "Cloudflare Tunnel (免费模式) 未启动或URL未能提取。"
           fi
           # 将作业保持活跃2小时（7200秒）。您可以根据需要调整此持续时间。
-          sleep 2000
+          sleep 600
           echo "手动访问窗口关闭。"
 
       - name: Stop Services and Backup Data
