@@ -118,7 +118,7 @@ jobs:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
           echo "Running Kemono Downloader..."
-          python ${{ github.workspace }}/veiled-journeys/kemono_downloader.py
+          python ${{ github.workspace }}/veiled-journeys/kemono_downloder.py || true
           echo "Kemono Downloader finished."
 
       - name: Manual Access Window (Optional)
