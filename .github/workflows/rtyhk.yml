@@ -35,25 +35,24 @@ jobs:
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
       - name: Configure OpenList and Restore Data
-        id: configure-openlist-data # 为此步骤添加ID，以便后续引用其输出
+        id: configure-openlist-data
         run: |
           echo "Configuring OpenList and restoring data..."
           cd /opt/openlist
           echo "Setting OpenList admin password..."
           sudo ./openlist admin set "${{ secrets.OPENLIST_PASSWORD }}"
           
-          DATA_RESTORED="false" # 默认设置为false
+          DATA_RESTORED="false"
           if [ -d "${{ github.workspace }}/veiled-journeys/openlist-data" ]; then
             echo "Found existing data in 'veiled-journeys/openlist-data'. Restoring..."
             sudo rsync -av --delete ${{ github.workspace }}/veiled-journeys/openlist-data/ /opt/openlist/data/
             echo "Data restoration complete."
-            DATA_RESTORED="true" # 如果找到数据，则设置为true
+            DATA_RESTORED="true"
           else
             echo "No 'openlist-data' directory found in repository. Starting with a fresh instance."
             sudo mkdir -p /opt/openlist/data
           fi
-          # 设置一个输出变量，指示数据是否已恢复
-          echo "data_restored=$DATA_RESTORED" >> $GITHUB_OUTPUT # 修正输出变量名
+          echo "data_restored=$DATA_RESTORED" >> $GITHUB_OUTPUT
           echo "Data restoration status: $DATA_RESTORED"
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
@@ -72,59 +71,61 @@ jobs:
           echo "Verifying megadl installation..."
           megadl --version
 
-      - name: Install Cloudflare Tunnel (cloudflared)
+      - name: Install Localtunnel (npm package)
         run: |
-          echo "Downloading and installing Cloudflare Tunnel client (cloudflared)..."
-          curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o cloudflared
-          sudo mv cloudflared /usr/local/bin/cloudflared
-          sudo chmod +x /usr/local/bin/cloudflared
-          echo "Verifying cloudflared installation..."
-          cloudflared --version
+          echo "Installing localtunnel via npm..."
+          npm install -g localtunnel
+          echo "Verifying localtunnel installation..."
+          lt --version || true # Use || true as --version might exit with 1 sometimes
 
-      - name: Copy Cloudflare Tunnel config and credentials from private repo
-        # 不再从Secret中获取，而是直接复制已克隆的私有仓库中的文件
-        run: |
-          echo "Copying Cloudflare Tunnel configuration files from veiled-journeys/.cloudflared/..."
-          mkdir -p ~/.cloudflared
-          # 复制所有文件，包括 config.yml 和 .json 凭证文件
-          cp -r ${{ github.workspace }}/veiled-journeys/.cloudflared/* ~/.cloudflared/
-          # 确保凭证文件的权限是安全的
-          chmod 600 ~/.cloudflared/*.json || true # Use || true to prevent failing if no json file or permissions are already fine
-          echo "Cloudflare Tunnel configuration copied."
-
-      - name: Start OpenList
+      - name: Start OpenList and Conditionally Start Localtunnel
+        env:
+          OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
           echo "Starting OpenList in the background..."
           sudo /opt/openlist/openlist start &
           # 捕获 OpenList 进程ID以供后续清理
           echo "OPENLIST_PID=$!" >> $GITHUB_ENV
           echo "OpenList started with PID ${OPENLIST_PID:-<unknown>}."
-          sleep 10 # 给 OpenList 启动留出时间
-
-      - name: Conditional Start Cloudflare Tunnel
-        # 仅当 OpenList 数据未从备份中恢复时才启动隧道
-        if: steps.configure-openlist-data.outputs.data_restored == 'false'
-        run: |
-          echo "OpenList数据未找到或未恢复。启动Cloudflare Tunnel以进行潜在的手动设置/调试..."
-          # cloudflared 将自动查找 ~/.cloudflared/config.yml
-          cloudflared tunnel run &
-          # 捕获 Cloudflare Tunnel 进程ID以供后续清理
-          echo "TUNNEL_PID=$!" >> $GITHUB_ENV
-          echo "Cloudflare Tunnel started with PID ${TUNNEL_PID:-<unknown>}."
-          sleep 5 # 给隧道建立连接留出时间
+          
+          # 给 OpenList 启动留出时间
+          sleep 10
+          
+          if [ "${{ steps.configure-openlist-data.outputs.data_restored }}" == "false" ]; then
+            echo "OpenList数据未找到或未恢复。启动Localtunnel以进行潜在的手动设置/调试..."
+            # 启动 localtunnel 并捕获其输出中的URL和进程ID
+            # 2>&1 将 stderr 合并到 stdout，然后grep/sed从其中提取URL
+            LOCALTUNNEL_OUTPUT=$(lt --port 5244 2>&1 &) # 以后台运行
+            echo "$LOCALTUNNEL_OUTPUT" # 打印所有输出，以便调试
+            
+            # 提取 URL，并设置一个变量来存储它。这个可能需要根据实际输出格式调整。
+            # LocalTunnel输出通常是 'your url is: https://<random-id>.loca.lt'
+            LOCALTUNNEL_URL=$(echo "$LOCALTUNNEL_OUTPUT" | grep -o 'https://[^ ]*\.loca\.lt')
+            
+            echo "LOCALTUNNEL_URL=$LOCALTUNNEL_URL" >> $GITHUB_ENV # 存储URL以便后续输出
+            echo "Localtunnel started with URL: $LOCALTUNNEL_URL"
+            
+            # 捕获 Localtunnel 进程ID
+            echo "LOCALTUNNEL_PID=$(jobs -p | xargs basename | tail -n 1)" >> $GITHUB_ENV # 获取最新后台进程的PID
+            echo "Localtunnel started with PID ${LOCALTUNNEL_PID:-<unknown>}."
+            sleep 5 # 给隧道建立连接留出时间
+          else
+            echo "OpenList数据已恢复。跳过Localtunnel启动。"
+          fi
 
       - name: Run Kemono Downloader
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
         run: |
           echo "Running Kemono Downloader..."
-          python ${{ github.workspace }}/veiled-journeys/kemono_downloder.py || true
+          python ${{ github.workspace }}/veiled-journeys/kemono_downloader.py
           echo "Kemono Downloader finished."
 
       - name: Manual Access Window (Optional)
         # 提供一个固定的等待窗口，无论隧道是否启动，都可以用于检查日志等
         run: |
           echo "保持工作流活跃，以便手动访问。请检查日志以获取OpenList/下载器输出。"
+          echo "如果Localtunnel已启动，其访问URL为: ${{ env.LOCALTUNNEL_URL }}"
           # 将作业保持活跃2小时（7200秒）。您可以根据需要调整此持续时间。
           sleep 7200
           echo "手动访问窗口关闭。"
@@ -134,19 +135,17 @@ jobs:
         run: |
           echo "Stopping services and backing up OpenList data..."
           
-          # 如果 Cloudflare Tunnel 已启动，则停止它
-          if [ -n "${{ env.TUNNEL_PID }}" ]; then # 检查 TUNNEL_PID 是否已设置
-            echo "Stopping Cloudflare Tunnel (PID ${{ env.TUNNEL_PID }})..."
-            kill ${{ env.TUNNEL_PID }} || true # 使用 kill 命令停止，|| true 防止命令失败导致整个步骤失败
+          # 如果 Localtunnel 已启动，则停止它
+          if [ -n "${{ env.LOCALTUNNEL_PID }}" ]; then # 检查 LOCALTUNNEL_PID 是否已设置
+            echo "Stopping Localtunnel (PID ${{ env.LOCALTUNNEL_PID }})..."
+            kill ${{ env.LOCALTUNNEL_PID }} || true # 使用 kill 命令停止，|| true 防止命令失败导致整个步骤失败
           fi
           
           # 停止 OpenList 服务
           if [ -n "${{ env.OPENLIST_PID }}" ]; then # 检查 OPENLIST_PID 是否已设置
             echo "Stopping OpenList (PID ${{ env.OPENLIST_PID }})..."
-            # 尝试使用kill命令停止，如果不行，则使用官方的openlist stop命令
             sudo kill ${{ env.OPENLIST_PID }} || sudo /opt/openlist/openlist stop || true
           else
-            # 如果由于某种原因未捕获到PID，则回退到使用命令停止OpenList
             echo "OPENLIST_PID 未找到，尝试通过命令停止OpenList..."
             sudo /opt/openlist/openlist stop || true
           fi
@@ -156,7 +155,6 @@ jobs:
           sudo rsync -av --delete /opt/openlist/data/ ./openlist-data/
           
           echo "Fixing permissions for git..."
-          # 更改所有权给 runner 用户，以便git可以与文件交互
           sudo chown -R $(whoami):$(whoami) ./openlist-data/
           
           git config --global user.name "GitHub Actions"
@@ -167,7 +165,7 @@ jobs:
           else
             echo "检测到变化。提交并推送到仓库..."
             git add openlist-data
-            git commit -m "chore: Backup OpenList data from workflow run" -m "[skip ci]" # [skip ci] 防止递归工作流运行
+            git commit -m "chore: Backup OpenList data from workflow run" -m "[skip ci]"
             git push
             echo "数据备份完成。"
           fi
