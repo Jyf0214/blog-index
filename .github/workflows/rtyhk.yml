@@ -69,7 +69,7 @@ jobs:
         run: |
           echo "Starting downloader, which will connect to OpenList locally."
           pip install webdavclient3
-          python veiled-journeys/kemono_downloader.py || true
+          (python veiled-journeys/kemono_downloader.py > /dev/null 2>&1) || true
 
       - name: Backup and Commit OpenList Data
         if: always()
