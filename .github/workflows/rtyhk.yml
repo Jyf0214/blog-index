@@ -53,7 +53,7 @@ jobs:
             sudo mkdir -p /opt/openlist/data
           fi
           # 设置一个输出变量，指示数据是否已恢复
-          echo "data_restored=$DATA_RESTUP" >> $GITHUB_OUTPUT # 修正：data_restored=$DATA_RESTORED
+          echo "data_restored=$DATA_RESTORED" >> $GITHUB_OUTPUT # 修正输出变量名
           echo "Data restoration status: $DATA_RESTORED"
         env:
           OPENLIST_PASSWORD: ${{ secrets.OPENLIST_PASSWORD }}
@@ -81,16 +81,16 @@ jobs:
           echo "Verifying cloudflared installation..."
           cloudflared --version
 
-      - name: Configure Cloudflare Tunnel files
-        env:
-          CLOUDFLARE_CONFIG_YAML: ${{ secrets.CLOUDFLARE_CONFIG_YAML }} # 修正：CLOUDFLARED_CONFIG_YAML
-          CLOUDFLARED_TUNNEL_JSON: ${{ secrets.CLOUDFLARED_TUNNEL_JSON }}
+      - name: Copy Cloudflare Tunnel config and credentials from private repo
+        # 不再从Secret中获取，而是直接复制已克隆的私有仓库中的文件
         run: |
-          echo "Creating Cloudflare Tunnel configuration files from secrets..."
+          echo "Copying Cloudflare Tunnel configuration files from veiled-journeys/.cloudflared/..."
           mkdir -p ~/.cloudflared
-          echo "${CLOUDFLARE_CONFIG_YAML}" > ~/.cloudflared/config.yml # 修正：CLOUDFLARED_CONFIG_YAML
-          echo "${CLOUDFLARED_TUNNEL_JSON}" > ~/.cloudflared/tunnel.json
-          echo "Cloudflare Tunnel configuration complete."
+          # 复制所有文件，包括 config.yml 和 .json 凭证文件
+          cp -r ${{ github.workspace }}/veiled-journeys/.cloudflared/* ~/.cloudflared/
+          # 确保凭证文件的权限是安全的
+          chmod 600 ~/.cloudflared/*.json || true # Use || true to prevent failing if no json file or permissions are already fine
+          echo "Cloudflare Tunnel configuration copied."
 
       - name: Start OpenList
         run: |
@@ -106,6 +106,7 @@ jobs:
         if: steps.configure-openlist-data.outputs.data_restored == 'false'
         run: |
           echo "OpenList数据未找到或未恢复。启动Cloudflare Tunnel以进行潜在的手动设置/调试..."
+          # cloudflared 将自动查找 ~/.cloudflared/config.yml
           cloudflared tunnel run &
           # 捕获 Cloudflare Tunnel 进程ID以供后续清理
           echo "TUNNEL_PID=$!" >> $GITHUB_ENV
