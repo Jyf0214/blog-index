@@ -1,0 +1,36 @@
+name: Discord-Gemini-Chatbot Auto Compress
+
+on:
+  workflow_dispatch:
+
+
+jobs:
+  install_and_run_job:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 步骤 1: 检出运行工作流的代码库
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+
+      # 步骤 2: 安装基础工具
+      - name: Install base tools (curl, gpg, git)
+        run: sudo apt-get update && sudo apt-get install -y curl gpg git
+
+   
+      - name: Clone private repository (veiled-journeys)
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+
+      - name: Install Python dependencies
+        run: pip install -r veiled-journeys/requirements.txt
+
+     
+      - name: Install image optimization tools
+        run: pip install -r veiled-journeys/Discord-Gemini-Chatbot/requirements.txt
+
+      - name: Upload Compressed to Web
+        run: |
+          cd veiled-journeys/Discord-Gemini-Chatbot
+          python bot.py
