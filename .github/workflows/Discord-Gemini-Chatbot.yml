@@ -31,6 +31,9 @@ jobs:
         run: pip install -r veiled-journeys/Discord-Gemini-Chatbot/requirements.txt
 
       - name: Upload Compressed to Web
+        env:
+          GOOGLE_AI_KEY: ${{ secrets.GOOGLE_AI_KEY }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
         run: |
           cd veiled-journeys/Discord-Gemini-Chatbot
           python bot.py
