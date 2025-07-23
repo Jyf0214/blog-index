@@ -1,0 +1,85 @@
+name: Video Compression Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Clone veiled-journeys repository
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+
+      - name: Install Python requirements
+        run: |
+          pip install -r veiled-journeys/requirements.txt
+
+      - name: Download One Video File from Directory
+        run: |
+          mkdir -p video_work
+          cd veiled-journeys
+          # Download one random file from "MyVideos/" directory
+          python webdav_download.py -a="MyVideos/" -b="../video_work/" -c=1
+          cd ..
+
+      - name: Process and Compare Video
+        id: process
+        run: |
+          cd video_work
+          # Find the first .mp4 file in the directory
+          ORIGINAL_FILE=$(find . -type f -name "*.mp4" -print -quit)
+          
+          if [ -z "$ORIGINAL_FILE" ]; then
+            echo "::error::No .mp4 file found in the downloaded content!"
+            exit 1
+          fi
+          
+          # Sanitize filename to use it in the output name
+          ORIGINAL_FILENAME=$(basename "$ORIGINAL_FILE")
+          COMPRESSED_FILE="compressed_${ORIGINAL_FILENAME}"
+          
+          echo "Processing file: $ORIGINAL_FILENAME"
+          echo "Starting FFmpeg encoding..."
+          ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset medium -crf 18 -threads 4 -tag:v hvc1 -c:a aac -b:a 128k "$COMPRESSED_FILE"
+          
+          ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
+          COMPRESSED_SIZE=$(stat -c%s "$COMPRESSED_FILE")
+          
+          echo "Original size: $ORIGINAL_SIZE bytes"
+          echo "Compressed size: $COMPRESSED_SIZE bytes"
+          
+          if [ "$ORIGINAL_SIZE" -le "$COMPRESSED_SIZE" ]; then
+            echo "Compressed file is not smaller. Keeping original."
+            rm "$COMPRESSED_FILE"
+            mv "$ORIGINAL_FILE" "final_output.mp4"
+            echo "final_file=final_output.mp4" >> $GITHUB_OUTPUT
+          else
+            echo "Compressed file is smaller. Keeping compressed version."
+            rm "$ORIGINAL_FILE"
+            mv "$COMPRESSED_FILE" "final_output.mp4"
+            echo "final_file=final_output.mp4" >> $GITHUB_OUTPUT
+          fi
+          cd ..
+
+      - name: Modify Upload Script for Target Directory
+        run: |
+          # Set the upload URL to the target path
+          sed -i "s|koofr_webdav_url = \".*\"|koofr_webdav_url = \"https://jike.teracloud.jp/dav/MyVideos/compressed/\"|" veiled-journeys/koofr_upload.py
+          # Set the local folder to the working directory
+          sed -i "s|local_folder = \".*\"|local_folder = \"./video_work/\"|" veiled-journeys/koofr_upload.py
+
+      - name: Upload Final Video
+        run: |
+          cd veiled-journeys
+          python koofr_upload.py
