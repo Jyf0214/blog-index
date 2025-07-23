@@ -10,6 +10,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # [优化] 增加缓存步骤，缓存 apt 和 pip 的依赖项
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+            ~/.cache/pip
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
       - name: Setup Dependencies
         run: |
           sudo apt-get update
@@ -47,16 +58,22 @@ jobs:
           COMPRESSED_FILE="compressed_${ORIGINAL_FILENAME}"
           
           echo "Processing file: $ORIGINAL_FILENAME"
-          echo "Starting FFmpeg encoding..."
-          ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset medium -crf 18 -threads 4 -tag:v hvc1 -c:a aac -b:a 128k "$COMPRESSED_FILE"
+          echo "Starting FFmpeg encoding with high-efficiency settings..."
+          
+          # [核心优化] 
+          # 1. 将 -preset 从 medium 改为 slow，用更长时间换取更高压缩率。
+          # 2. 将 -c:a aac -b:a 128k 改为 -c:a copy，直接复制音轨，保证音质无损并提速。
+          ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset veryslow -crf 16 -threads 4 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
           
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
           COMPRESSED_SIZE=$(stat -c%s "$COMPRESSED_FILE")
           
+          echo "Original size: $ORIGINAL_SIZE bytes"
+          echo "Compressed size: $COMPRESSED_SIZE bytes"
+          
           if [ "$ORIGINAL_SIZE" -le "$COMPRESSED_SIZE" ]; then
             echo "Compressed file is not smaller. Keeping original."
             rm "$COMPRESSED_FILE"
-            # 使用一个固定的输出文件名，方便后续步骤引用
             mv "$ORIGINAL_FILE" "final_output.mp4"
             echo "final_file=video_work/final_output.mp4" >> $GITHUB_OUTPUT
           else
@@ -68,6 +85,9 @@ jobs:
           cd ..
 
       - name: Upload Final Video
+        env:
+          # 为了安全，建议将密码设置为 GitHub Secret
+          KOOFR_PASSWORD: ${{ secrets.KOOFR_PASSWORD }}
         run: |
           python veiled-journeys/koofr_upload.py \
             --file "${{ steps.process.outputs.final_file }}" \
