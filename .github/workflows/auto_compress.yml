@@ -63,7 +63,7 @@ jobs:
           # [核心优化] 
           # 1. 将 -preset 从 medium 改为 slow，用更长时间换取更高压缩率。
           # 2. 将 -c:a aac -b:a 128k 改为 -c:a copy，直接复制音轨，保证音质无损并提速。
-          ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset veryslow -crf 16 -threads 4 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
+          ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset veryslow -crf 16 -threads 16 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
           
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
           COMPRESSED_SIZE=$(stat -c%s "$COMPRESSED_FILE")
