@@ -61,7 +61,7 @@ jobs:
           echo "Processing file: $ORIGINAL_FILENAME"
           echo "Starting FFmpeg encoding with high-efficiency settings..."
           
-          ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset veryslow -crf 16 -threads 16 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
+          ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset veryslow -crf 16 -threads 32 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
           
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
           COMPRESSED_SIZE=$(stat -c%s "$COMPRESSED_FILE")
@@ -84,6 +84,7 @@ jobs:
 
       # [--- 这是被修改的核心步骤 ---]
       - name: Upload to GoFile and Update List (Silent)
+        run: |
           python veiled-journeys/file_manager.py upload \
             --file "${{ steps.process.outputs.final_file }}" \
             --list-file "compressed_videos_list.txt" \
