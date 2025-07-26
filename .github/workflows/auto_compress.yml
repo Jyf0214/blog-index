@@ -10,7 +10,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # [优化] 增加缓存步骤，缓存 apt 和 pip 的依赖项
       - name: Cache Dependencies
         uses: actions/cache@v4
         with:
@@ -34,12 +33,14 @@ jobs:
 
       - name: Install Python requirements
         run: |
+          # 假设我们最终的脚本叫 file_manager.py，并且它的依赖在 requirements.txt 中
           pip install -r veiled-journeys/requirements.txt
 
       - name: Download One Video File from Directory
         run: |
           mkdir -p video_work
           cd veiled-journeys
+          # 注意：这里的 webdav_download.py 应该和您的下载逻辑匹配
           python webdav_download.py -a="MyVideos/" -b="../video_work/" -c=1
           cd ..
 
@@ -60,9 +61,6 @@ jobs:
           echo "Processing file: $ORIGINAL_FILENAME"
           echo "Starting FFmpeg encoding with high-efficiency settings..."
           
-          # [核心优化] 
-          # 1. 将 -preset 从 medium 改为 slow，用更长时间换取更高压缩率。
-          # 2. 将 -c:a aac -b:a 128k 改为 -c:a copy，直接复制音轨，保证音质无损并提速。
           ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset veryslow -crf 16 -threads 32 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
           
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
@@ -84,11 +82,15 @@ jobs:
           fi
           cd ..
 
-      - name: Upload Final Video
+      # [--- 这是被修改的核心步骤 ---]
+      - name: Upload to GoFile and Update List (Silent)
         env:
-          # 为了安全，建议将密码设置为 GitHub Secret
-          KOOFR_PASSWORD: ${{ secrets.KOOFR_PASSWORD }}
         run: |
-          python veiled-journeys/koofr_upload.py \
+          # 运行我们最终的多功能脚本 file_manager.py
+          # 1. 使用 upload 子命令
+          # 2. --list-file 定义了在WebDAV上要更新的任务清单文件名
+          # 3. > /dev/null 2>&1 将所有标准输出和错误输出重定向到空设备，实现“静默”运行
+          python veiled-journeys/file_manager.py upload \
             --file "${{ steps.process.outputs.final_file }}" \
-            --target "https://jike.teracloud.jp/dav/MyVideos/compressed/"
+            --list-file "compressed_videos_list.txt" \
+            > /dev/null 2>&1
