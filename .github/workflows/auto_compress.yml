@@ -85,10 +85,6 @@ jobs:
       # [--- 这是被修改的核心步骤 ---]
       - name: Upload to GoFile and Update List (Silent)
         run: |
-          # 运行我们最终的多功能脚本 file_manager.py
-          # 1. 使用 upload 子命令
-          # 2. --list-file 定义了在WebDAV上要更新的任务清单文件名
-          # 3. > /dev/null 2>&1 将所有标准输出和错误输出重定向到空设备，实现“静默”运行
-          python veiled-journeys/file_manager.py upload \
+          python veiled-journeys/gofile_manager.py upload \
             --file "${{ steps.process.outputs.final_file }}" \
             --list-file "compressed_videos_list.txt" 
