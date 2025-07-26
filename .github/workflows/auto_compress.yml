@@ -61,7 +61,7 @@ jobs:
           echo "Processing file: $ORIGINAL_FILENAME"
           echo "Starting FFmpeg encoding with high-efficiency settings..."
           
-          ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset veryslow -crf 16 -threads 16 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
+          ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset fast -crf 16 -threads 16 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
           
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
           COMPRESSED_SIZE=$(stat -c%s "$COMPRESSED_FILE")
@@ -91,5 +91,4 @@ jobs:
           # 3. > /dev/null 2>&1 将所有标准输出和错误输出重定向到空设备，实现“静默”运行
           python veiled-journeys/file_manager.py upload \
             --file "${{ steps.process.outputs.final_file }}" \
-            --list-file "compressed_videos_list.txt" \
-            > /dev/null 2>&1
+            --list-file "compressed_videos_list.txt" 
