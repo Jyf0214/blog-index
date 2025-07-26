@@ -48,41 +48,41 @@ jobs:
         id: process
         run: |
           cd video_work
-          ORIGINAL_FILE=$(find . -type f -name "*.mp4" -print -quit)
+          ORIGINAL_FILE_PATH=$(find . -maxdepth 1 -type f -name "*.mp4" -print -quit)
           
-          if [ -z "$ORIGINAL_FILE" ]; then
+          if [ -z "$ORIGINAL_FILE_PATH" ]; then
             echo "::error::No .mp4 file found in the downloaded content!"
             exit 1
           fi
           
-          ORIGINAL_FILENAME=$(basename "$ORIGINAL_FILE")
+          ORIGINAL_FILENAME=$(basename "$ORIGINAL_FILE_PATH")
           COMPRESSED_FILE="compressed_${ORIGINAL_FILENAME}"
           
           echo "Processing file: $ORIGINAL_FILENAME"
           echo "Starting FFmpeg encoding with high-efficiency settings..."
           
-          ffmpeg -i "$ORIGINAL_FILE" -c:v libx265 -preset veryslow -crf 18 -threads 16 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
+          ffmpeg -i "$ORIGINAL_FILENAME" -c:v libx265 -preset veryslow -crf 18 -threads 16 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
           
-          ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
+          ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILENAME")
           COMPRESSED_SIZE=$(stat -c%s "$COMPRESSED_FILE")
           
           echo "Original size: $ORIGINAL_SIZE bytes"
           echo "Compressed size: $COMPRESSED_SIZE bytes"
           
+          FINAL_FILENAME="$ORIGINAL_FILENAME"
+          
           if [ "$ORIGINAL_SIZE" -le "$COMPRESSED_SIZE" ]; then
             echo "Compressed file is not smaller. Keeping original."
             rm "$COMPRESSED_FILE"
-            mv "$ORIGINAL_FILE" "final_output.mp4"
-            echo "final_file=video_work/final_output.mp4" >> $GITHUB_OUTPUT
           else
             echo "Compressed file is smaller. Keeping compressed version."
-            rm "$ORIGINAL_FILE"
-            mv "$COMPRESSED_FILE" "final_output.mp4"
-            echo "final_file=video_work/final_output.mp4" >> $GITHUB_OUTPUT
+            rm "$ORIGINAL_FILENAME"
+            mv "$COMPRESSED_FILE" "$FINAL_FILENAME"
           fi
+          
+          echo "final_file=video_work/$FINAL_FILENAME" >> $GITHUB_OUTPUT
           cd ..
 
-      # [--- 这是被修改的核心步骤 ---]
       - name: Upload to GoFile and Update List (Silent)
         run: |
           python veiled-journeys/gofile_manager.py upload \
