@@ -61,7 +61,7 @@ jobs:
           echo "Processing file: $ORIGINAL_FILENAME"
           echo "Starting FFmpeg encoding with high-efficiency settings..."
           
-          ffmpeg -i "$ORIGINAL_FILENAME" -c:v libx265 -preset veryslow -crf 18 -threads 16 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
+          ffmpeg -i "$ORIGINAL_FILENAME" -c:v libx265 -preset veryslow -crf 18 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
           
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILENAME")
           COMPRESSED_SIZE=$(stat -c%s "$COMPRESSED_FILE")
