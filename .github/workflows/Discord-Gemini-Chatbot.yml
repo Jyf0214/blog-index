@@ -37,3 +37,43 @@ jobs:
         run: |
           cd veiled-journeys/Discord-Gemini-Chatbot
           nohup python bot.py > /dev/null 2>&1 & sleep $((5*3600+50*60)) && pkill -f bot.py
+
+jobs:
+  detect_nsfw:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Setup Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg mediainfo htop 
+          sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
+          sudo apt-get install -y ttf-mscorefonts-installer
+          sudo fc-cache -fv
+          pip install numpy onnxruntime pandas pillow requests
+
+      - name: Clone Repository
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+
+      - name: Create Processor Script
+        run: |
+          cd veiled-journeys/tagger_model/
+          wget -O model.onnx "https://huggingface.co/SmilingWolf/wd-v1-4-swinv2-tagger-v2/resolve/main/model.onnx"
+
+
+      - name: Run Processor Script
+        run: |
+          cd veiled-journeys
+          python detect_nsfw.py
+          
