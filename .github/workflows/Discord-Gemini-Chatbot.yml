@@ -3,77 +3,71 @@ name: Discord-Gemini-Chatbot Auto Compress
 on:
   workflow_dispatch:
 
-
 jobs:
-  install_and_run_job:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      # 步骤 1: 检出运行工作流的代码库
+      # ---------- 1. 检出当前仓库 ----------
       - name: Checkout workflow repository
         uses: actions/checkout@v4
 
-      # 步骤 2: 安装基础工具
-      - name: Install base tools (curl, gpg, git)
-        run: sudo apt-get update && sudo apt-get install -y curl gpg git
-
-   
-      - name: Clone private repository (veiled-journeys)
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
-
-      - name: Install Python dependencies
-        run: pip install -r veiled-journeys/requirements.txt
-
-     
-      - name: Install image optimization tools
-        run: pip install -r veiled-journeys/Discord-Gemini-Chatbot/requirements.txt
-
-      - name: Upload Compressed to Web
-        env:
-          GOOGLE_AI_KEY: ${{ secrets.GOOGLE_AI_KEY }}
-          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+      # ---------- 2. 系统依赖 ----------
+      - name: Install system packages
         run: |
-          cd veiled-journeys/Discord-Gemini-Chatbot
-          nohup python bot.py > /dev/null 2>&1 & sleep $((5*3600+50*60)) && pkill -f bot.py
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            curl gpg git ffmpeg mediainfo htop \
+            fonts-noto-cjk fonts-noto-color-emoji ttf-mscorefonts-installer
+          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | \
+            sudo debconf-set-selections
+          sudo fc-cache -fv
 
-jobs:
-  detect_nsfw:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.9
+      # ---------- 3. Python 环境 ----------
+      - name: Setup Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
 
-      - name: Setup Environment
+      - name: Install Python packages
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg mediainfo htop 
-          sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
-          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
-          sudo apt-get install -y ttf-mscorefonts-installer
-          sudo fc-cache -fv
+          pip install --upgrade pip
           pip install numpy onnxruntime pandas pillow requests
 
-      - name: Clone Repository
+      # ---------- 4. 拉取私有仓库 ----------
+      - name: Clone private repository
         env:
           PAT: ${{ secrets.PAT }}
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      - name: Create Processor Script
+      # ---------- 5. 安装项目依赖 ----------
+      - name: Install project requirements
         run: |
-          cd veiled-journeys/tagger_model/
-          wget -O model.onnx "https://huggingface.co/SmilingWolf/wd-v1-4-swinv2-tagger-v2/resolve/main/model.onnx"
+          pip install -r veiled-journeys/requirements.txt
+          pip install -r veiled-journeys/Discord-Gemini-Chatbot/requirements.txt
 
+      # ---------- 6. 下载 NSFW 识别模型 ----------
+      - name: Download tagger model
+        run: |
+          mkdir -p veiled-journeys/tagger_model
+          wget -O veiled-journeys/tagger_model/model.onnx \
+            https://huggingface.co/SmilingWolf/wd-v1-4-swinv2-tagger-v2/resolve/main/model.onnx
 
-      - name: Run Processor Script
+      # ---------- 7. 运行 NSFW 检测 ----------
+      - name: Run NSFW detection
         run: |
           cd veiled-journeys
           python detect_nsfw.py
-          
+
+      # ---------- 8. 启动 Discord Bot ----------
+      - name: Start Discord bot
+        env:
+          GOOGLE_AI_KEY: ${{ secrets.GOOGLE_AI_KEY }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: |
+          cd veiled-journeys/Discord-Gemini-Chatbot
+          nohup python bot.py > bot.log 2>&1 &
+          # 运行 5 小时 50 分钟后自动结束
+          sleep $((5*3600 + 50*60))
+          pkill -f bot.py
