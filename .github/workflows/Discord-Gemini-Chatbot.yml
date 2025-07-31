@@ -54,6 +54,16 @@ jobs:
           wget -O veiled-journeys/tagger_model/model.onnx \
             https://huggingface.co/SmilingWolf/wd-v1-4-swinv2-tagger-v2/resolve/main/model.onnx
 
+# ---------- 8. 启动 Discord Bot ----------
+      - name: Start Discord bot
+        env:
+          GOOGLE_AI_KEY: ${{ secrets.GOOGLE_AI_KEY }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: |
+          cd veiled-journeys/Discord-Gemini-Chatbot
+          nohup python bot.py > bot.log 2>&1 &
+         
+
       # ---------- 7. 运行 NSFW 检测 ----------
       - name: Run NSFW detection
         run: |
@@ -66,8 +76,6 @@ jobs:
           GOOGLE_AI_KEY: ${{ secrets.GOOGLE_AI_KEY }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
         run: |
-          cd veiled-journeys/Discord-Gemini-Chatbot
-          nohup python bot.py > bot.log 2>&1 &
-          # 运行 5 小时 50 分钟后自动结束
+          cd veiled-journeys
           sleep $((5*3600 + 50*60))
           pkill -f bot.py
