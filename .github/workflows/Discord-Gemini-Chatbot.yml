@@ -52,7 +52,7 @@ jobs:
         run: |
           mkdir -p veiled-journeys/tagger_model
           wget -O veiled-journeys/tagger_model/model.onnx \
-            https://huggingface.co/SmilingWolf/wd-v1-4-swinv2-tagger-v2/resolve/main/model.onnx
+            https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/model.onnx
 
 # ---------- 8. 启动 Discord Bot ----------
       - name: Start Discord bot
