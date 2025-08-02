@@ -68,7 +68,7 @@ jobs:
       - name: Run NSFW detection
         run: |
           cd veiled-journeys
-          python detect_nsfw.py
+          python saucenao_classifier.py
 
       # ---------- 8. 启动 Discord Bot ----------
       - name: Start Discord bot
