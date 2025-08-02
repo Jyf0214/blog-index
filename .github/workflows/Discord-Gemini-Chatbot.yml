@@ -86,6 +86,7 @@ jobs:
           SAUCE_SEARCH_MODE: ${{ github.event.inputs.search_mode }}
         run: |
           cd veiled-journeys
+          python detect_nsfw.py
           python saucenao_classifier.py
 
       # ---------- 9. 停止 Discord Bot (在任务最后) ----------
