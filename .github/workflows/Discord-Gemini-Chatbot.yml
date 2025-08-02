@@ -88,8 +88,6 @@ jobs:
   # ---------- 8. 运行 SauceNAO 图片分类脚本 ----------
       - name: Run SauceNAO Classifier
         # --- 核心改动: 将用户输入设置为环境变量 ---
-        env:
-          SAUCENAO_SEARCH_MODE: ${{ github.event.inputs.search_mode }}
         run: |
           cd veiled-journeys
           python saucenao_classifier.py
