@@ -1,7 +1,17 @@
-name: Discord-Gemini-Chatbot Auto Compress
+name: Discord-Bot and Image Classification
 
 on:
   workflow_dispatch:
+    # --- 核心改动: 添加手动触发时的输入选项 ---
+    inputs:
+      search_mode:
+        description: 'SauceNAO 分类模式'
+        required: true
+        default: 'pixiv_priority'
+        type: choice
+        options:
+          - pixiv_priority    # 对应: 85% 相似度, 仅限 Pixiv
+          - high_confidence   # 对应: 90% 相似度, 全网来源
 
 jobs:
   build:
@@ -12,18 +22,16 @@ jobs:
       - name: Checkout workflow repository
         uses: actions/checkout@v4
 
-      # ---------- 2. 系统依赖 ----------
+      # ---------- 2. 安装系统依赖 ----------
       - name: Install system packages
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y \
-            curl gpg git ffmpeg mediainfo htop \
-            fonts-noto-cjk fonts-noto-color-emoji ttf-mscorefonts-installer
-          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | \
-            sudo debconf-set-selections
+          sudo apt-get install -y curl gpg git ffmpeg mediainfo htop \
+                                  fonts-noto-cjk fonts-noto-color-emoji ttf-mscorefonts-installer
+          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
           sudo fc-cache -fv
 
-      # ---------- 3. Python 环境 ----------
+      # ---------- 3. 设置 Python 环境 ----------
       - name: Setup Python 3.9
         uses: actions/setup-python@v4
         with:
@@ -32,29 +40,36 @@ jobs:
       - name: Install Python packages
         run: |
           pip install --upgrade pip
-          pip install numpy onnxruntime pandas pillow requests
+          pip install numpy onnxruntime pandas pillow requests pyyaml # 确保 pyyaml 已安装
 
-      # ---------- 4. 拉取私有仓库 ----------
+      # ---------- 4. 拉取包含分类脚本的私有仓库 ----------
       - name: Clone private repository
         env:
           PAT: ${{ secrets.PAT }}
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      # ---------- 5. 安装项目依赖 ----------
+      # ---------- 5. 安装项目特定依赖 ----------
       - name: Install project requirements
         run: |
-          pip install -r veiled-journeys/requirements.txt
-          pip install -r veiled-journeys/Discord-Gemini-Chatbot/requirements.txt
-
-      # ---------- 6. 下载 NSFW 识别模型 ----------
+          # 检查并安装 veiled-journeys 的依赖 (如果存在)
+          if [ -f veiled-journeys/requirements.txt ]; then
+            pip install -r veiled-journeys/requirements.txt
+          fi
+          # 检查并安装 Discord Bot 的依赖 (如果存在)
+          if [ -f veiled-journeys/Discord-Gemini-Chatbot/requirements.txt ]; then
+            pip install -r veiled-journeys/Discord-Gemini-Chatbot/requirements.txt
+          fi
+          
+      # ---------- 6. 下载 NSFW 识别模型 (如果需要) ----------
+      # 注意: saucenao_classifier.py 不需要此模型, 但为完整性保留
       - name: Download tagger model
         run: |
           mkdir -p veiled-journeys/tagger_model
-          wget -O veiled-journeys/tagger_model/model.onnx \
-            https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/model.onnx
+          wget -O veiled-journeys/tagger_model/model.onnx https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/model.onnx
+          # 注意: 完整的 NSFW 检测还需要 selected_tags.csv 文件
 
-# ---------- 8. 启动 Discord Bot ----------
+      # ---------- 7. 启动 Discord Bot (后台运行) ----------
       - name: Start Discord bot
         env:
           GOOGLE_AI_KEY: ${{ secrets.GOOGLE_AI_KEY }}
@@ -62,20 +77,23 @@ jobs:
         run: |
           cd veiled-journeys/Discord-Gemini-Chatbot
           nohup python bot.py > bot.log 2>&1 &
-         
+          echo "Discord Bot 已在后台启动。"
 
-      # ---------- 7. 运行 NSFW 检测 ----------
-      - name: Run NSFW detection
+      # ---------- 8. 运行 SauceNAO 图片分类脚本 ----------
+      - name: Run SauceNAO Classifier
+        # --- 核心改动: 将用户输入设置为环境变量 ---
+        env:
+          SAUCE_SEARCH_MODE: ${{ github.event.inputs.search_mode }}
         run: |
           cd veiled-journeys
           python saucenao_classifier.py
 
-      # ---------- 8. 启动 Discord Bot ----------
-      - name: Start Discord bot
-        env:
-          GOOGLE_AI_KEY: ${{ secrets.GOOGLE_AI_KEY }}
-          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+      # ---------- 9. 停止 Discord Bot (在任务最后) ----------
+      # 说明: 这个步骤会等待近6小时, 然后停止机器人。
+      # 这会长时间占用 Actions Runner。请确认这是您期望的行为。
+      - name: Stop Discord bot after delay
         run: |
-          cd veiled-journeys
+          echo "分类任务完成。将等待 5 小时 50 分钟后停止 Bot..."
           sleep $((5*3600 + 50*60))
           pkill -f bot.py
+          echo "Discord Bot 已停止。"
