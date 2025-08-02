@@ -22,15 +22,6 @@ jobs:
       - name: Checkout workflow repository
         uses: actions/checkout@v4
 
-      # ---------- 2. 安装系统依赖 ----------
-      - name: Install system packages
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y curl gpg git ffmpeg mediainfo htop \
-                                  fonts-noto-cjk fonts-noto-color-emoji ttf-mscorefonts-installer
-          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
-          sudo fc-cache -fv
-
       # ---------- 3. 设置 Python 环境 ----------
       - name: Setup Python 3.9
         uses: actions/setup-python@v4
@@ -49,7 +40,27 @@ jobs:
         run: |
           git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
-      # ---------- 5. 安装项目特定依赖 ----------
+   
+          
+      # ---------- 6. 下载 NSFW 识别模型 (如果需要) ----------
+      # 注意: saucenao_classifier.py 不需要此模型, 但为完整性保留
+      - name: Download tagger model
+        run: |
+          mkdir -p veiled-journeys/tagger_model
+          wget -O veiled-journeys/tagger_model/model.onnx https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/model.onnx
+          # 注意: 完整的 NSFW 检测还需要 selected_tags.csv 文件
+
+      
+      # ---------- 8. 运行 SauceNAO 图片分类脚本 ----------
+      - name: Run SauceNAO Classifier
+        # --- 核心改动: 将用户输入设置为环境变量 ---
+        env:
+          SAUCENAO_SEARCH_MODE: ${{ github.event.inputs.search_mode }}
+        run: |
+          cd veiled-journeys
+          python saucenao_classifier.py
+
+   # ---------- 5. 安装项目特定依赖 ----------
       - name: Install project requirements
         run: |
           # 检查并安装 veiled-journeys 的依赖 (如果存在)
@@ -60,16 +71,18 @@ jobs:
           if [ -f veiled-journeys/Discord-Gemini-Chatbot/requirements.txt ]; then
             pip install -r veiled-journeys/Discord-Gemini-Chatbot/requirements.txt
           fi
-          
-      # ---------- 6. 下载 NSFW 识别模型 (如果需要) ----------
-      # 注意: saucenao_classifier.py 不需要此模型, 但为完整性保留
-      - name: Download tagger model
-        run: |
-          mkdir -p veiled-journeys/tagger_model
-          wget -O veiled-journeys/tagger_model/model.onnx https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/model.onnx
-          # 注意: 完整的 NSFW 检测还需要 selected_tags.csv 文件
 
-      # ---------- 7. 启动 Discord Bot (后台运行) ----------
+# ---------- 2. 安装系统依赖 ----------
+      - name: Install system packages
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y curl gpg git ffmpeg mediainfo htop \
+                                  fonts-noto-cjk fonts-noto-color-emoji ttf-mscorefonts-installer
+          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
+          sudo fc-cache -fv
+
+
+# ---------- 7. 启动 Discord Bot (后台运行) ----------
       - name: Start Discord bot
         env:
           GOOGLE_AI_KEY: ${{ secrets.GOOGLE_AI_KEY }}
@@ -78,15 +91,6 @@ jobs:
           cd veiled-journeys/Discord-Gemini-Chatbot
           nohup python bot.py > bot.log 2>&1 &
           echo "Discord Bot 已在后台启动。"
-
-      # ---------- 8. 运行 SauceNAO 图片分类脚本 ----------
-      - name: Run SauceNAO Classifier
-        # --- 核心改动: 将用户输入设置为环境变量 ---
-        env:
-          SAUCENAO_SEARCH_MODE: ${{ github.event.inputs.search_mode }}
-        run: |
-          cd veiled-journeys
-          python saucenao_classifier.py
 
       # ---------- 9. 停止 Discord Bot (在任务最后) ----------
       # 说明: 这个步骤会等待近6小时, 然后停止机器人。
