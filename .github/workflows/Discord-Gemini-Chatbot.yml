@@ -83,7 +83,7 @@ jobs:
       - name: Run SauceNAO Classifier
         # --- 核心改动: 将用户输入设置为环境变量 ---
         env:
-          SAUCE_SEARCH_MODE: ${{ github.event.inputs.search_mode }}
+          SAUCENAO_SEARCH_MODE: ${{ github.event.inputs.search_mode }}
         run: |
           cd veiled-journeys
           python detect_nsfw.py
