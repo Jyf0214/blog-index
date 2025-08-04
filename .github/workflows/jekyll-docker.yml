@@ -74,7 +74,7 @@ jobs:
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
         run: |
-          git remote add gitcode "https://${{ steps.repo-info.outputs.owner }}:${GITCODE_TOKEN}@gitcode.net/${{ steps.repo-info.outputs.owner }}/${{ steps.repo-info.outputs.repo }}.git"
+          git remote add gitcode "https://${{ steps.repo-info.outputs.owner }}:${GITCODE_TOKEN}@gitcode.com/${{ steps.repo-info.outputs.owner }}/${{ steps.repo-info.outputs.repo }}.git"
           git push --all --force gitcode
           git push --tags --force gitcode
           echo "✅ Synced to GitCode"
