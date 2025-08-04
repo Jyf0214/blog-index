@@ -36,9 +36,6 @@ jobs:
       - name: Install dependencies globally
         run: |
           pip install -r veiled-journeys/requirements.txt
-          cd veiled-journeys
-          cd Skland
-          python skyland.py
 
       - name: Run veiled-journeys scripts
         env:
@@ -53,6 +50,7 @@ jobs:
           PASSWORD: ${{ secrets.PASSWORD }}
         run: |
           cd veiled-journeys
+          python skyland.py
           python smtp.py
           python bingapi.py
           python git.py
