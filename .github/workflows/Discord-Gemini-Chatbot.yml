@@ -87,7 +87,7 @@ jobs:
         # --- 核心改动: 将用户输入设置为环境变量 ---
         run: |
           cd veiled-journeys
-          python saucenao_classifier.py
+          python detect_nsfw.py
           
 
       # ---------- 9. 停止 Discord Bot (在任务最后) ----------
