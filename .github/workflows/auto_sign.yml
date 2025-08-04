@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies globally
         run: |
           pip install -r veiled-journeys/requirements.txt
+          cd veiled-journeys
+          cd Skland
+          python skland.py
 
       - name: Run veiled-journeys scripts
         env:
@@ -54,8 +57,6 @@ jobs:
           python bingapi.py
           python git.py
           python src/dailymessage.py
-          cd Skland
-          python skland.py
 
       - name: Process Skland App and Deploy to HWAWAI FC
         run: |
