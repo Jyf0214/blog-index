@@ -66,7 +66,8 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
           git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.hk/${{ steps.repo-info.outputs.owner }}/${{ steps.repo-info.outputs.repo }}.git"
-          git push --mirror --force gitlab
+          git push --all --force gitlab
+          git push --tags --force gitlab
           echo "✅ Synced to GitLab (gitlab.hk)"
 
       - name: Sync to GitCode
@@ -74,5 +75,6 @@ jobs:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
         run: |
           git remote add gitcode "https://${{ steps.repo-info.outputs.owner }}:${GITCODE_TOKEN}@gitcode.net/${{ steps.repo-info.outputs.owner }}/${{ steps.repo-info.outputs.repo }}.git"
-          git push --mirror --force gitcode
+          git push --all --force gitcode
+          git push --tags --force gitcode
           echo "✅ Synced to GitCode"
