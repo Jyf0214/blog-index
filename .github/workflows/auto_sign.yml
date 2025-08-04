@@ -50,11 +50,12 @@ jobs:
           PASSWORD: ${{ secrets.PASSWORD }}
         run: |
           cd veiled-journeys
-          python skyland.py
           python smtp.py
           python bingapi.py
           python git.py
           python src/dailymessage.py
+          cd Skland
+          python skland.py
 
       - name: Process Skland App and Deploy to HWAWAI FC
         run: |
