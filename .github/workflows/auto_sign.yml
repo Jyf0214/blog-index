@@ -38,7 +38,7 @@ jobs:
           pip install -r veiled-journeys/requirements.txt
           cd veiled-journeys
           cd Skland
-          python skland.py
+          python skyland.py
 
       - name: Run veiled-journeys scripts
         env:
