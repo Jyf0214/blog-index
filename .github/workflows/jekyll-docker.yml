@@ -39,3 +39,46 @@ jobs:
         publish_dir: ./dist  # Vite 默认构建输出目录
         cname: jyf20100214.giize.com
 
+
+  sync-repositories:
+    runs-on: ubuntu-latest
+    steps:
+      # 步骤1：检出当前仓库（包含所有提交历史）
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整提交历史
+
+      # 步骤2：获取仓库信息
+      - name: Get repository info
+        id: repo-info
+        run: |
+          OWNER=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
+          REPO=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
+          echo "owner=$OWNER" >> $GITHUB_OUTPUT
+          echo "repo=$REPO" >> $GITHUB_OUTPUT
+      
+      # 步骤3：配置全局Git身份
+      - name: Configure Git
+        run: |
+          git config --global user.name "Jyf0214"
+          git config --global user.email "actions@users.noreply.github.com"
+
+
+      # 步骤5：同步到GitLab
+      - name: Sync to GitLab
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git remote add gitlab "https://oauth2:$GITLAB_TOKEN@gitlab.com/${{ steps.repo-info.outputs.owner }}/${{ steps.repo-info.outputs.repo }}.git"
+          git push --mirror --force gitlab
+          echo "✅ Synced to GitLab"
+
+      # 步骤6：同步到GitCode
+      - name: Sync to GitCode
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          git remote add gitcode "https://${{ steps.repo-info.outputs.owner }}:$GITCODE_TOKEN@gitcode.net/${{ steps.repo-info.outputs.owner }}/${{ steps.repo-info.outputs.repo }}.git"
+          git push --mirror --force gitcode
+          echo "✅ Synced to GitCode"
