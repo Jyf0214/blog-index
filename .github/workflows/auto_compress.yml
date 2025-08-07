@@ -67,6 +67,9 @@ jobs:
 
       # ---------- 分段压缩处理 ----------
       # ---------- 分段压缩处理（串行版） ----------
+       # ... 其他步骤保持不变 ...
+
+      # ---------- 分段压缩处理（最终多线程优化版） ----------
       - name: Process Video in Segments to Avoid Timeout
         id: process
         shell: bash
@@ -74,37 +77,36 @@ jobs:
           set -e
           cd /mnt/ramdisk/video_work
 
-          # 查找第一个 mp4 文件
           ORIGINAL_FILE_PATH=$(find . -maxdepth 1 -type f -name "*.mp4" -print -quit)
           [ -z "$ORIGINAL_FILE_PATH" ] && { echo "::error::No .mp4 file found!"; exit 1; }
           ORIGINAL_FILENAME=$(basename "$ORIGINAL_FILE_PATH")
           echo "Processing file: $ORIGINAL_FILENAME"
 
-          # 1. 创建临时目录
           mkdir -p segments compressed_segments
 
-          # 2. 高效无损分割
-          echo "Step 1: Splitting video into ~10 minute segments (lossless)..."
+          # 建议：对于大多数视频，5秒的分割太短了，会产生大量小文件和频繁的进程启动开销。
+          # 建议使用 60 (1分钟) 或 300 (5分钟) 作为分段时长，以取得更好的平衡。
+          echo "Step 1: Splitting video into segments..."
           ffmpeg -i "$ORIGINAL_FILENAME" \
                  -f segment \
-                 -segment_time 5 \
+                 -segment_time 300 \
                  -c copy \
                  -reset_timestamps 1 \
                  "segments/segment_%03d.mp4"
           echo "Splitting complete."
 
-          # 3. 串行压缩 (Sequential Compression) - 更稳定可靠
-          echo "Step 2: Compressing segments sequentially..."
+          echo "Step 2: Compressing segments sequentially (with multithreading for each segment)..."
           CONCAT_LIST_FILE="concat_list.txt"
           > "$CONCAT_LIST_FILE"
 
           find segments -type f -name "*.mp4" | sort | while read -r f; do
             BASENAME=$(basename "$f")
             COMPRESSED_SEGMENT_PATH="compressed_segments/$BASENAME"
-            echo "Compressing $f -> $COMPRESSED_SEGMENT_PATH..."
+            echo "Compressing $f -> $COMPRESSED_SEGMENT_PATH (using all available CPU cores)..."
 
-            # 前台执行，确保失败即停止
+            # 【核心优化】添加 -threads 0 参数
             ffmpeg -i "$f" \
+                   -threads 0 \
                    -c:v libx265 \
                    -preset veryslow \
                    -crf 18 \
@@ -112,7 +114,6 @@ jobs:
                    -c:a copy \
                    "$COMPRESSED_SEGMENT_PATH"
 
-            # 验证压缩产物
             if [ -s "$COMPRESSED_SEGMENT_PATH" ]; then
               echo "Compression successful for $BASENAME."
               echo "file '$COMPRESSED_SEGMENT_PATH'" >> "$CONCAT_LIST_FILE"
@@ -124,12 +125,12 @@ jobs:
 
           echo "All segments compressed."
 
-          # 4. 无损合并
+          # ... 合并、比较、清理等后续步骤保持不变 ...
+          
           echo "Step 3: Merging compressed segments (lossless)..."
           MERGED_FILENAME="compressed_${ORIGINAL_FILENAME}"
           ffmpeg -f concat -safe 0 -i "$CONCAT_LIST_FILE" -c copy "$MERGED_FILENAME"
 
-          # 5. 比较和清理
           echo "Step 4: Comparing sizes and cleaning up..."
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILENAME")
 
@@ -156,7 +157,6 @@ jobs:
           rm -rf segments compressed_segments "$CONCAT_LIST_FILE"
           echo "final_file=/mnt/ramdisk/video_work/$FINAL_FILENAME" >> "$GITHUB_OUTPUT"
           cd /home/runner/work
-
       # ---------- 上传到 GoFile ----------
       - name: Upload to GoFile and Update List (Silent)
         run: |
