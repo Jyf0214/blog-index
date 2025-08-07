@@ -1,11 +1,11 @@
-name: Constrained Parallel Segmented Video Compression
+name: Robust Parallel Segmented Video Compression
 
 on:
   workflow_dispatch:
 
 env:
   WORKFLOW_RUN_ID: ${{ github.run_id }}
-  SEGMENT_DURATION_SECONDS: 600
+  SEGMENT_DURATION_SECONDS: 30
 
 jobs:
   # 任务1：分割视频（无改动）
@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix_payload: ${{ steps.split.outputs.matrix_array }}
+      segment_count: ${{ steps.split.outputs.count }}
     steps:
       - name: Install FFmpeg
         run: |
@@ -45,6 +46,7 @@ jobs:
           
           COUNT=$(ls -1 video_segments/*.mp4 | wc -l)
           echo "Generated $COUNT segments."
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
 
           if [ "$COUNT" -gt 0 ]; then
             SEQUENCE=$(seq 0 $(($COUNT - 1)) | tr '\n' ',' | sed 's/,$//')
@@ -106,15 +108,15 @@ jobs:
           path: compressed_segment/
           key: compressed-${{ env.WORKFLOW_RUN_ID }}-${{ matrix.segment_index }}
 
-  # 任务3：合并与上传（已修正）
+  # 任务3：合并与上传（已使用 gh cli 修正）
   merge_and_upload:
     runs-on: ubuntu-latest
     needs: [split_video, compress_segments]
     steps:
-      - name: Install FFmpeg
+      - name: Install FFmpeg and JQ
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg jq
 
       - name: Restore Original Video from Cache
         uses: actions/cache/restore@v4
@@ -124,16 +126,24 @@ jobs:
           fail-on-cache-miss: true
 
       # --- 核心修正点 ---
-      - name: Restore All Compressed Segments from Cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ./
-          # 添加一个主key来满足action的要求。它不必精确匹配。
-          key: compressed-segments-${{ env.WORKFLOW_RUN_ID }}
-          # restore-keys 会查找所有以此为前缀的缓存并恢复它们
-          restore-keys: |
-            compressed-${{ env.WORKFLOW_RUN_ID }}-
-          fail-on-cache-miss: true
+      - name: Restore all compressed segments using gh cli
+        env:
+          # gh cli 需要 token 来与 GitHub API 通信
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SEGMENT_COUNT=${{ needs.split_video.outputs.segment_count }}
+          echo "Expecting $SEGMENT_COUNT segments..."
+          
+          for i in $(seq 0 $(($SEGMENT_COUNT - 1))); do
+            CACHE_KEY="compressed-${{ env.WORKFLOW_RUN_ID }}-${i}"
+            echo "Attempting to restore cache: $CACHE_KEY"
+            # 使用 gh cache restore 来恢复每一个缓存。
+            # 如果缓存不存在，它会返回非零退出码，`|| true` 可以防止工作流因此失败。
+            gh cache restore "$CACHE_KEY" || echo "Cache $CACHE_KEY not found, continuing."
+          done
+          
+          echo "--- Files in workspace after restore ---"
+          ls -R
 
       - name: Clone private repository for upload script
         env:
@@ -148,7 +158,14 @@ jobs:
       - name: Merge compressed segments
         id: merge
         run: |
+          # 确保文件列表不为空
+          if ! find . -path "*compressed_segment/*.mp4" -mindepth 1 | read; then
+            echo "::error::No compressed segments were found to merge."
+            exit 1
+          fi
+          
           find . -path "*compressed_segment/*.mp4" | sort -V | while read -r f; do echo "file '$f'" >> file_list.txt; done
+          
           echo "--- File List for Concat ---"
           cat file_list.txt
           echo "----------------------------"
@@ -165,7 +182,7 @@ jobs:
           echo "Original size: $ORIGINAL_SIZE bytes"
           echo "Merged compressed size: $MERGED_SIZE bytes"
           FINAL_FILE_PATH="$ORIGINAL_FILE"
-          if [ "$MERGED_SIZE" -lt "$ORIGINAL_SIZE" ] && [ "$MERGED_SIZE" -gt 0 ]; then
+          if [ -f "$MERGED_FILE" ] && [ "$MERGED_SIZE" -lt "$ORIGINAL_SIZE" ] && [ "$MERGED_SIZE" -gt 0 ]; then
             echo "Merged file is smaller. Selecting merged version."
             FINAL_FILE_PATH="$MERGED_FILE"
           else
