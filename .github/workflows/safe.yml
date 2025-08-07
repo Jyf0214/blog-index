@@ -63,7 +63,7 @@ jobs:
         run: |
           cd veiled-journeys
           chmod +x download_mega_video.sh
-          python webdav_download.py -a="Pictures/a4_layout/" -b="./input_images/" -c=741210248504952
+          python webdav_download.py -a="Pictures/webp/" -b="./input_images/" -c=741210248504952
       # python app.py
       # python a4_layout.py	
       # git add processed_images.log
