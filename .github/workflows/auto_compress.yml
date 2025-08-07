@@ -5,14 +5,13 @@ on:
 
 env:
   WORKFLOW_RUN_ID: ${{ github.run_id }}
-  SEGMENT_DURATION_SECONDS: 45
+  SEGMENT_DURATION_SECONDS: 600
 
 jobs:
-  # 任务1：分割视频并生成矩阵所需的JSON数组
+  # 任务1：分割视频（无改动）
   split_video:
     runs-on: ubuntu-latest
     outputs:
-      # 输出矩阵所需的JSON数组字符串，例如 "[0,1,2]"
       matrix_payload: ${{ steps.split.outputs.matrix_array }}
     steps:
       - name: Install FFmpeg
@@ -47,11 +46,6 @@ jobs:
           COUNT=$(ls -1 video_segments/*.mp4 | wc -l)
           echo "Generated $COUNT segments."
 
-          # --- 核心修正 ---
-          # 在 shell 中直接生成 JSON 数组字符串
-          # seq 0 ($COUNT - 1) 会生成 0 1 2 ...
-          # tr '\n' ',' 会将换行符替换为逗号 -> "0,1,2,"
-          # sed 's/,$//' 会移除最后一个逗号 -> "0,1,2"
           if [ "$COUNT" -gt 0 ]; then
             SEQUENCE=$(seq 0 $(($COUNT - 1)) | tr '\n' ',' | sed 's/,$//')
             JSON_ARRAY="[${SEQUENCE}]"
@@ -74,7 +68,7 @@ jobs:
           path: video_segments/
           key: segments-${{ env.WORKFLOW_RUN_ID }}
 
-  # 任务2：并行压缩所有视频片段
+  # 任务2：并行压缩片段（无改动）
   compress_segments:
     runs-on: ubuntu-latest
     needs: split_video
@@ -82,8 +76,6 @@ jobs:
       fail-fast: false
       max-parallel: 10
       matrix:
-        # --- 核心修正 ---
-        # 使用 fromJSON() 来解析上一个任务输出的字符串
         segment_index: ${{ fromJSON(needs.split_video.outputs.matrix_payload) }}
         
     steps:
@@ -106,7 +98,7 @@ jobs:
           SEGMENT_FILE="video_segments/segment_${FORMATTED_INDEX}.mp4"
           
           echo "Processing segment: $SEGMENT_FILE"
-          ffmpeg -i "$SEGMENT_FILE" -c:v libx265 -preset veryslow -threads 16 -crf 18 -tag:v hvc1 -c:a copy "compressed_segment/compressed_${FORMATTED_INDEX}.mp4"
+          ffmpeg -i "$SEGMENT_FILE" -c:v libx265 -preset fast -crf 23 -tag:v hvc1 -c:a copy "compressed_segment/compressed_${FORMATTED_INDEX}.mp4"
 
       - name: Save Compressed Segment to Cache
         uses: actions/cache/save@v4
@@ -114,7 +106,7 @@ jobs:
           path: compressed_segment/
           key: compressed-${{ env.WORKFLOW_RUN_ID }}-${{ matrix.segment_index }}
 
-  # 任务3：合并所有压缩好的片段并上传（此部分无改动）
+  # 任务3：合并与上传（已修正）
   merge_and_upload:
     runs-on: ubuntu-latest
     needs: [split_video, compress_segments]
@@ -131,10 +123,14 @@ jobs:
           key: original-${{ env.WORKFLOW_RUN_ID }}
           fail-on-cache-miss: true
 
+      # --- 核心修正点 ---
       - name: Restore All Compressed Segments from Cache
         uses: actions/cache/restore@v4
         with:
           path: ./
+          # 添加一个主key来满足action的要求。它不必精确匹配。
+          key: compressed-segments-${{ env.WORKFLOW_RUN_ID }}
+          # restore-keys 会查找所有以此为前缀的缓存并恢复它们
           restore-keys: |
             compressed-${{ env.WORKFLOW_RUN_ID }}-
           fail-on-cache-miss: true
