@@ -1,4 +1,4 @@
-name: Rclone-Unified Parallel Video Compression
+name: Rclone-Unified Parallel Video Compression (Corrected Cache)
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ env:
   WORKFLOW_RUN_ID: ${{ github.run_id }}
 
 jobs:
-  # 任务1：分割并缓存（此部分无改动）
+  # 任务1：分割视频，并将数据存入两个独立的缓存
   split_and_cache:
     runs-on: ubuntu-latest
     outputs:
@@ -46,13 +46,19 @@ jobs:
           fi
           echo "matrix_array=${JSON_ARRAY}" >> $GITHUB_OUTPUT
 
-      - name: Save Original Video and Segments to Cache
+      # --- 修正点 1：为原始视频创建独立缓存 ---
+      - name: Save Original Video to Cache
         uses: actions/cache/save@v4
         with:
-          path: |
-            original_video/
-            video_segments/
-          key: source-files-${{ env.WORKFLOW_RUN_ID }}
+          path: original_video/
+          key: original-${{ env.WORKFLOW_RUN_ID }}
+
+      # --- 修正点 2：为视频片段创建独立缓存 ---
+      - name: Save Segments to Cache
+        uses: actions/cache/save@v4
+        with:
+          path: video_segments/
+          key: segments-${{ env.WORKFLOW_RUN_ID }}
 
   # 任务2：使用Rclone上传压缩片段
   compress_and_upload_to_b2:
@@ -64,20 +70,19 @@ jobs:
       matrix:
         segment_index: ${{ fromJSON(needs.split_and_cache.outputs.matrix_payload) }}
     steps:
-      # --- 修正点 1 ---
       - name: Install Dependencies (ffmpeg, rclone)
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
           sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
+      # --- 修正点 3：只恢复视频片段的缓存 ---
       - name: Restore Uncompressed Segments from Cache
         uses: actions/cache/restore@v4
         with:
           path: video_segments/
-          key: source-files-${{ env.WORKFLOW_RUN_ID }}
+          key: segments-${{ env.WORKFLOW_RUN_ID }}
           fail-on-cache-miss: true
-
-      # --- 修正点 2 ---
+      
       - name: Configure Rclone
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
@@ -99,15 +104,13 @@ jobs:
           ffmpeg -i "$INPUT_FILE" -c:v libx265 -preset fast -crf 23 -tag:v hvc1 -c:a copy "$OUTPUT_FILE"
           echo "output_file=$OUTPUT_FILE" >> $GITHUB_OUTPUT
 
-      # --- 修正点 3 ---
       - name: Upload Compressed Segment with Rclone
         run: |
           OUTPUT_FILE=${{ steps.process.outputs.output_file }}
           BASENAME=$(basename "$OUTPUT_FILE")
-          # 使用 rclone copyto 将单个文件上传到指定位置
           rclone copyto "$OUTPUT_FILE" "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed/${BASENAME}"
 
-  # 任务3：从B2下载、合并并上传（此部分逻辑正确，无需改动）
+  # 任务3：从B2下载、合并并上传
   merge_from_b2_and_upload:
     runs-on: ubuntu-latest
     needs: [split_and_cache, compress_and_upload_to_b2]
@@ -117,11 +120,12 @@ jobs:
           sudo apt-get update && sudo apt-get install -y ffmpeg
           sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
+      # --- 修正点 4：只恢复原始视频的缓存 ---
       - name: Restore Original Video from Cache
         uses: actions/cache/restore@v4
         with:
           path: original_video/
-          key: source-files-${{ env.WORKFLOW_RUN_ID }}
+          key: original-${{ env.WORKFLOW_RUN_ID }}
           fail-on-cache-miss: true
 
       - name: Configure Rclone for B2 (with Download URL)
@@ -150,6 +154,7 @@ jobs:
           pip install -r veiled-journeys/requirements.txt
       
       - name: Merge, Compare and Upload
+        id: merge_and_select
         run: |
           if ! find ./compressed_segments -mindepth 1 -type f -name "*.mp4" | read; then
             echo "::error::No compressed segments were downloaded from B2."
@@ -168,7 +173,13 @@ jobs:
             FINAL_FILE_PATH="$MERGED_FILE"
           fi
           
-          python veiled-journeys/gofile_manager.py upload --file "$FINAL_FILE_PATH" --list-file "compressed_videos_list.txt" > /dev/null 2>&1
+          echo "final_file=${FINAL_FILE_PATH}" >> $GITHUB_OUTPUT
+
+      - name: Upload to GoFile
+        run: |
+          FINAL_FILE_TO_UPLOAD=${{ steps.merge_and_select.outputs.final_file }}
+          echo "Uploading ${FINAL_FILE_TO_UPLOAD}..."
+          python veiled-journeys/gofile_manager.py upload --file "$FINAL_FILE_TO_UPLOAD" --list-file "compressed_videos_list.txt" > /dev/null 2>&1
   
   # 任务4：使用Rclone清理B2上的临时文件
   cleanup_b2:
@@ -190,10 +201,8 @@ jobs:
           account = ${B2_KEY_ID}
           key = ${B2_APPLICATION_KEY}" > ~/.config/rclone/rclone.conf
 
-      # --- 修正点 4 ---
       - name: Purge temporary directory from B2 with Rclone
         run: |
           echo "Purging remote directory: ${{ env.REMOTE_DIR }}"
-          # rclone purge 会删除指定目录及其所有内容，是最高效的清理方式
           rclone purge "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}"
           echo "Cleanup complete."
