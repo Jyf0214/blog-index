@@ -35,7 +35,7 @@ jobs:
         run: |
           mkdir -p video_segments
           ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
-          ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 90 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
+          ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 60 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
           COUNT=$(ls -1 video_segments/*.mp4 | wc -l)
           echo "count=$COUNT" >> $GITHUB_OUTPUT
           if [ "$COUNT" -gt 0 ]; then
