@@ -1,61 +1,51 @@
-name: Robust Parallel Segmented Video Compression
+name: Hybrid Parallel Video Compression (Cache + B2)
 
 on:
   workflow_dispatch:
 
 env:
-  WORKFLOW_RUN_ID: ${{ github.run_id }}
-  SEGMENT_DURATION_SECONDS: 30
+  # 使用工作流ID为所有临时文件创建唯一的"目录"，确保每次运行都隔离
+  REMOTE_DIR: ${{ github.run_id }}
+  WORKFLOW_RUN_ID: ${{ github.run_id }} # actions/cache 也需要
 
 jobs:
-  # 任务1：分割视频（无改动）
-  split_video:
+  # 任务1：分割视频，并将原始视频和未压缩片段存入 GitHub Cache
+  split_and_cache:
     runs-on: ubuntu-latest
     outputs:
       matrix_payload: ${{ steps.split.outputs.matrix_array }}
       segment_count: ${{ steps.split.outputs.count }}
     steps:
       - name: Install FFmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      - name: Clone private repository for scripts
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+      - name: Clone scripts repository
+        env: { PAT: ${{ secrets.PAT }} }
+        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
       - name: Install Python requirements
-        run: |
-          pip install -r veiled-journeys/requirements.txt
+        run: pip install -r veiled-journeys/requirements.txt
 
-      - name: Download Video File
+      - name: Download Original Video
         run: |
           mkdir -p original_video
           python veiled-journeys/webdav_download.py -a="MyVideos/" -b="./original_video/" -c=1
 
-      - name: Split video and generate matrix payload
+      - name: Split video and generate matrix
         id: split
         run: |
           mkdir -p video_segments
           ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
-          
-          echo "Splitting '$ORIGINAL_FILE' into ${{ env.SEGMENT_DURATION_SECONDS }}s segments..."
-          ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time ${{ env.SEGMENT_DURATION_SECONDS }} -reset_timestamps 1 "video_segments/segment_%03d.mp4"
-          
+          ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 600 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
           COUNT=$(ls -1 video_segments/*.mp4 | wc -l)
           echo "Generated $COUNT segments."
           echo "count=$COUNT" >> $GITHUB_OUTPUT
-
           if [ "$COUNT" -gt 0 ]; then
             SEQUENCE=$(seq 0 $(($COUNT - 1)) | tr '\n' ',' | sed 's/,$//')
             JSON_ARRAY="[${SEQUENCE}]"
           else
             JSON_ARRAY="[]"
           fi
-          
-          echo "Generated matrix payload: ${JSON_ARRAY}"
           echo "matrix_array=${JSON_ARRAY}" >> $GITHUB_OUTPUT
 
       - name: Save Original Video to Cache
@@ -64,59 +54,64 @@ jobs:
           path: original_video/
           key: original-${{ env.WORKFLOW_RUN_ID }}
           
-      - name: Save Video Segments to Cache
+      - name: Save Uncompressed Segments to Cache
         uses: actions/cache/save@v4
         with:
           path: video_segments/
           key: segments-${{ env.WORKFLOW_RUN_ID }}
 
-  # 任务2：并行压缩片段（无改动）
-  compress_segments:
+  # 任务2：并行压缩片段（从Cache下载，上传到B2）
+  compress_and_upload_to_b2:
     runs-on: ubuntu-latest
-    needs: split_video
+    needs: split_and_cache
     strategy:
       fail-fast: false
       max-parallel: 10
       matrix:
-        segment_index: ${{ fromJSON(needs.split_video.outputs.matrix_payload) }}
-        
+        segment_index: ${{ fromJSON(needs.split_and_cache.outputs.matrix_payload) }}
     steps:
-      - name: Install FFmpeg
+      - name: Install Dependencies (ffmpeg, b2-cli)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install --upgrade b2
 
-      - name: Restore Video Segments from Cache
+      - name: Restore Uncompressed Segments from Cache
         uses: actions/cache/restore@v4
         with:
           path: video_segments/
           key: segments-${{ env.WORKFLOW_RUN_ID }}
           fail-on-cache-miss: true
 
-      - name: Process One Segment with 'veryslow' preset
+      - name: Process One Segment
+        id: process
         run: |
-          mkdir -p compressed_segment
+          mkdir -p compressed_output
           FORMATTED_INDEX=$(printf "%03d" ${{ matrix.segment_index }})
-          SEGMENT_FILE="video_segments/segment_${FORMATTED_INDEX}.mp4"
-          
-          echo "Processing segment: $SEGMENT_FILE"
-          ffmpeg -i "$SEGMENT_FILE" -c:v libx265 -preset fast -crf 23 -tag:v hvc1 -c:a copy "compressed_segment/compressed_${FORMATTED_INDEX}.mp4"
+          INPUT_FILE="video_segments/segment_${FORMATTED_INDEX}.mp4"
+          OUTPUT_FILE="compressed_output/compressed_${FORMATTED_INDEX}.mp4"
+          ffmpeg -i "$INPUT_FILE" -c:v libx265 -preset veryslow -crf 23 -tag:v hvc1 -c:a copy "$OUTPUT_FILE"
+          echo "output_file=$OUTPUT_FILE" >> $GITHUB_OUTPUT
 
-      - name: Save Compressed Segment to Cache
-        uses: actions/cache/save@v4
-        with:
-          path: compressed_segment/
-          key: compressed-${{ env.WORKFLOW_RUN_ID }}-${{ matrix.segment_index }}
-
-  # 任务3：合并与上传（已使用 gh cli 修正）
-  merge_and_upload:
-    runs-on: ubuntu-latest
-    needs: [split_video, compress_segments]
-    steps:
-      - name: Install FFmpeg and JQ
+      - name: Upload Compressed Segment to B2
+        env:
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg jq
+          b2 authorize-account "$B2_KEY_ID" "$B2_APPLICATION_KEY"
+          OUTPUT_FILE=${{ steps.process.outputs.output_file }}
+          BASENAME=$(basename "$OUTPUT_FILE")
+          b2 upload-file "$B2_BUCKET_NAME" "$OUTPUT_FILE" "${{ env.REMOTE_DIR }}/compressed/${BASENAME}"
+
+  # 任务3：从B2下载、合并、比较并上传
+  merge_from_b2_and_upload:
+    runs-on: ubuntu-latest
+    needs: [split_and_cache, compress_and_upload_to_b2]
+    steps:
+      - name: Install Dependencies (ffmpeg, rclone)
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
       - name: Restore Original Video from Cache
         uses: actions/cache/restore@v4
@@ -125,68 +120,58 @@ jobs:
           key: original-${{ env.WORKFLOW_RUN_ID }}
           fail-on-cache-miss: true
 
-      # --- 核心修正点 ---
-      - name: Restore all compressed segments using gh cli
+      - name: Configure Rclone for B2
         env:
-          # gh cli 需要 token 来与 GitHub API 通信
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 注意：rclone仍然需要Key来认证和列出文件，即使下载使用Download URL。
+          # 建议为此创建一个权限为 "readFiles" 的只读Key。
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_DOWNLOAD_URL: ${{ secrets.B2_DOWNLOAD_URL }}
         run: |
-          SEGMENT_COUNT=${{ needs.split_video.outputs.segment_count }}
-          echo "Expecting $SEGMENT_COUNT segments..."
-          
-          for i in $(seq 0 $(($SEGMENT_COUNT - 1))); do
-            CACHE_KEY="compressed-${{ env.WORKFLOW_RUN_ID }}-${i}"
-            echo "Attempting to restore cache: $CACHE_KEY"
-            # 使用 gh cache restore 来恢复每一个缓存。
-            # 如果缓存不存在，它会返回非零退出码，`|| true` 可以防止工作流因此失败。
-            gh cache restore "$CACHE_KEY" || echo "Cache $CACHE_KEY not found, continuing."
-          done
-          
-          echo "--- Files in workspace after restore ---"
-          ls -R
+          mkdir -p ~/.config/rclone
+          echo "[b2_remote]
+          type = b2
+          account = ${B2_KEY_ID}
+          key = ${B2_APPLICATION_KEY}
+          download_url = ${B2_DOWNLOAD_URL}" > ~/.config/rclone/rclone.conf
 
-      - name: Clone private repository for upload script
-        env:
-          PAT: ${{ secrets.PAT }}
+      - name: Download all compressed segments from B2
         run: |
-          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+          mkdir -p compressed_segments
+          # 使用 rclone copy 下载整个目录
+          rclone copy "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed" ./compressed_segments
+
+      - name: Clone scripts repository
+        env: { PAT: ${{ secrets.PAT }} }
+        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
       
-      - name: Install Python requirements for upload script
-        run: |
-          pip install -r veiled-journeys/requirements.txt
+      - name: Install Python requirements
+        run: pip install -r veiled-journeys/requirements.txt
 
       - name: Merge compressed segments
         id: merge
         run: |
-          # 确保文件列表不为空
-          if ! find . -path "*compressed_segment/*.mp4" -mindepth 1 | read; then
-            echo "::error::No compressed segments were found to merge."
+          if ! find ./compressed_segments -mindepth 1 -type f -name "*.mp4" | read; then
+            echo "::error::No compressed segments were downloaded from B2."
             exit 1
           fi
-          
-          find . -path "*compressed_segment/*.mp4" | sort -V | while read -r f; do echo "file '$f'" >> file_list.txt; done
-          
-          echo "--- File List for Concat ---"
-          cat file_list.txt
-          echo "----------------------------"
+          find ./compressed_segments -type f -name "*.mp4" | sort -V | while read -r f; do echo "file '$f'" >> file_list.txt; done
           ffmpeg -f concat -safe 0 -i file_list.txt -c copy final_video.mp4
           echo "final_file_path=final_video.mp4" >> $GITHUB_OUTPUT
 
-      - name: Compare sizes and select final file
+      - name: Compare and select final file
         id: select
         run: |
-          ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
+          ORIGINAL_FILE=$(find ./original_video -type f -name "*.mp4")
           MERGED_FILE="${{ steps.merge.outputs.final_file_path }}"
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
           MERGED_SIZE=$(stat -c%s "$MERGED_FILE")
-          echo "Original size: $ORIGINAL_SIZE bytes"
-          echo "Merged compressed size: $MERGED_SIZE bytes"
           FINAL_FILE_PATH="$ORIGINAL_FILE"
           if [ -f "$MERGED_FILE" ] && [ "$MERGED_SIZE" -lt "$ORIGINAL_SIZE" ] && [ "$MERGED_SIZE" -gt 0 ]; then
-            echo "Merged file is smaller. Selecting merged version."
+            echo "Merged file is smaller."
             FINAL_FILE_PATH="$MERGED_FILE"
           else
-            echo "Merged file is not smaller or is empty. Selecting original version."
+            echo "Merged file is not smaller or is empty. Keeping original."
           fi
           echo "final_file=$FINAL_FILE_PATH" >> $GITHUB_OUTPUT
 
@@ -195,5 +180,29 @@ jobs:
           echo "Uploading ${{ steps.select.outputs.final_file }}..."
           python veiled-journeys/gofile_manager.py upload \
             --file "${{ steps.select.outputs.final_file }}" \
-            --list-file "compressed_videos_list.txt" \
-            > /dev/null 2>&1
+            --list-file "compressed_videos_list.txt" > /dev/null 2>&1
+  
+  # （可选但强烈推荐）任务4：清理B2上的临时文件
+  cleanup_b2:
+    runs-on: ubuntu-latest
+    needs: merge_from_b2_and_upload # 在主流程结束后运行
+    if: always() # 无论主流程成功或失败，都尝试清理
+    steps:
+      - name: Install B2 CLI
+        run: pip install --upgrade b2
+
+      - name: Delete temporary directory from B2
+        env:
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          b2 authorize-account "$B2_KEY_ID" "$B2_APPLICATION_KEY"
+          echo "Deleting remote directory: ${{ env.REMOTE_DIR }}"
+          # 列出所有文件版本并删除
+          b2 ls --long --recursive "${B2_BUCKET_NAME}/${{ env.REMOTE_DIR }}" | awk '{print $1" "$2}' | while read -r fileId fileName; do
+            if [ -n "$fileId" ] && [ -n "$fileName" ]; then
+              b2 delete-file-version "$fileName" "$fileId"
+            fi
+          done
+          echo "Cleanup complete."
