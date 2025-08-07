@@ -7,6 +7,10 @@ env:
   REMOTE_DIR: ${{ github.run_id }}
   WORKFLOW_RUN_ID: ${{ github.run_id }}
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   # 任务1：分割视频，并将数据存入两个独立的缓存
   split_and_cache:
