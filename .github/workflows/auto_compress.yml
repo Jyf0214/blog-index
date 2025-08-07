@@ -1,25 +1,22 @@
-name: Hybrid Parallel Video Compression (Cache + B2)
+name: Rclone-Unified Parallel Video Compression
 
 on:
   workflow_dispatch:
 
 env:
-  # 使用工作流ID为所有临时文件创建唯一的"目录"，确保每次运行都隔离
   REMOTE_DIR: ${{ github.run_id }}
-  WORKFLOW_RUN_ID: ${{ github.run_id }} # actions/cache 也需要
+  WORKFLOW_RUN_ID: ${{ github.run_id }}
 
 jobs:
-  # 任务1：分割视频，并将原始视频和未压缩片段存入 GitHub Cache
+  # 任务1：分割并缓存（此部分无改动）
   split_and_cache:
     runs-on: ubuntu-latest
     outputs:
       matrix_payload: ${{ steps.split.outputs.matrix_array }}
-      segment_count: ${{ steps.split.outputs.count }}
     steps:
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      # --- 修正点 ---
       - name: Clone scripts repository
         env:
           PAT: ${{ secrets.PAT }}
@@ -40,7 +37,6 @@ jobs:
           ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
           ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 20 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
           COUNT=$(ls -1 video_segments/*.mp4 | wc -l)
-          echo "Generated $COUNT segments."
           echo "count=$COUNT" >> $GITHUB_OUTPUT
           if [ "$COUNT" -gt 0 ]; then
             SEQUENCE=$(seq 0 $(($COUNT - 1)) | tr '\n' ',' | sed 's/,$//')
@@ -50,19 +46,15 @@ jobs:
           fi
           echo "matrix_array=${JSON_ARRAY}" >> $GITHUB_OUTPUT
 
-      - name: Save Original Video to Cache
+      - name: Save Original Video and Segments to Cache
         uses: actions/cache/save@v4
         with:
-          path: original_video/
-          key: original-${{ env.WORKFLOW_RUN_ID }}
-          
-      - name: Save Uncompressed Segments to Cache
-        uses: actions/cache/save@v4
-        with:
-          path: video_segments/
-          key: segments-${{ env.WORKFLOW_RUN_ID }}
+          path: |
+            original_video/
+            video_segments/
+          key: source-files-${{ env.WORKFLOW_RUN_ID }}
 
-  # 任务2：并行压缩片段（从Cache下载，上传到B2）
+  # 任务2：使用Rclone上传压缩片段
   compress_and_upload_to_b2:
     runs-on: ubuntu-latest
     needs: split_and_cache
@@ -72,18 +64,31 @@ jobs:
       matrix:
         segment_index: ${{ fromJSON(needs.split_and_cache.outputs.matrix_payload) }}
     steps:
-      - name: Install Dependencies (ffmpeg, b2-cli)
+      # --- 修正点 1 ---
+      - name: Install Dependencies (ffmpeg, rclone)
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
-          pip install --upgrade b2
+          sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
       - name: Restore Uncompressed Segments from Cache
         uses: actions/cache/restore@v4
         with:
           path: video_segments/
-          key: segments-${{ env.WORKFLOW_RUN_ID }}
+          key: source-files-${{ env.WORKFLOW_RUN_ID }}
           fail-on-cache-miss: true
 
+      # --- 修正点 2 ---
+      - name: Configure Rclone
+        env:
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "[b2_remote]
+          type = b2
+          account = ${B2_KEY_ID}
+          key = ${B2_APPLICATION_KEY}" > ~/.config/rclone/rclone.conf
+      
       - name: Process One Segment
         id: process
         run: |
@@ -94,18 +99,15 @@ jobs:
           ffmpeg -i "$INPUT_FILE" -c:v libx265 -preset fast -crf 23 -tag:v hvc1 -c:a copy "$OUTPUT_FILE"
           echo "output_file=$OUTPUT_FILE" >> $GITHUB_OUTPUT
 
-      - name: Upload Compressed Segment to B2
-        env:
-          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
-          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
-          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+      # --- 修正点 3 ---
+      - name: Upload Compressed Segment with Rclone
         run: |
-          b2 authorize-account "$B2_KEY_ID" "$B2_APPLICATION_KEY"
           OUTPUT_FILE=${{ steps.process.outputs.output_file }}
           BASENAME=$(basename "$OUTPUT_FILE")
-          b2 upload-file "$B2_BUCKET_NAME" "$OUTPUT_FILE" "${{ env.REMOTE_DIR }}/compressed/${BASENAME}"
+          # 使用 rclone copyto 将单个文件上传到指定位置
+          rclone copyto "$OUTPUT_FILE" "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed/${BASENAME}"
 
-  # 任务3：从B2下载、合并、比较并上传
+  # 任务3：从B2下载、合并并上传（此部分逻辑正确，无需改动）
   merge_from_b2_and_upload:
     runs-on: ubuntu-latest
     needs: [split_and_cache, compress_and_upload_to_b2]
@@ -119,10 +121,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: original_video/
-          key: original-${{ env.WORKFLOW_RUN_ID }}
+          key: source-files-${{ env.WORKFLOW_RUN_ID }}
           fail-on-cache-miss: true
 
-      - name: Configure Rclone for B2
+      - name: Configure Rclone for B2 (with Download URL)
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
@@ -140,17 +142,14 @@ jobs:
           mkdir -p compressed_segments
           rclone copy "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed" ./compressed_segments
 
-      # --- 修正点 ---
-      - name: Clone scripts repository
+      - name: Clone and setup upload scripts
         env:
           PAT: ${{ secrets.PAT }}
-        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+        run: |
+          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+          pip install -r veiled-journeys/requirements.txt
       
-      - name: Install Python requirements
-        run: pip install -r veiled-journeys/requirements.txt
-
-      - name: Merge compressed segments
-        id: merge
+      - name: Merge, Compare and Upload
         run: |
           if ! find ./compressed_segments -mindepth 1 -type f -name "*.mp4" | read; then
             echo "::error::No compressed segments were downloaded from B2."
@@ -158,54 +157,43 @@ jobs:
           fi
           find ./compressed_segments -type f -name "*.mp4" | sort -V | while read -r f; do echo "file '$f'" >> file_list.txt; done
           ffmpeg -f concat -safe 0 -i file_list.txt -c copy final_video.mp4
-          echo "final_file_path=final_video.mp4" >> $GITHUB_OUTPUT
-
-      - name: Compare and select final file
-        id: select
-        run: |
+          
           ORIGINAL_FILE=$(find ./original_video -type f -name "*.mp4")
-          MERGED_FILE="${{ steps.merge.outputs.final_file_path }}"
+          MERGED_FILE="final_video.mp4"
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
           MERGED_SIZE=$(stat -c%s "$MERGED_FILE")
           FINAL_FILE_PATH="$ORIGINAL_FILE"
+          
           if [ -f "$MERGED_FILE" ] && [ "$MERGED_SIZE" -lt "$ORIGINAL_SIZE" ] && [ "$MERGED_SIZE" -gt 0 ]; then
-            echo "Merged file is smaller."
             FINAL_FILE_PATH="$MERGED_FILE"
-          else
-            echo "Merged file is not smaller or is empty. Keeping original."
           fi
-          echo "final_file=$FINAL_FILE_PATH" >> $GITHUB_OUTPUT
-
-      - name: Upload Final Video to GoFile
-        run: |
-          echo "Uploading ${{ steps.select.outputs.final_file }}..."
-          python veiled-journeys/gofile_manager.py upload \
-            --file "${{ steps.select.outputs.final_file }}" \
-            --list-file "compressed_videos_list.txt" > /dev/null 2>&1
+          
+          python veiled-journeys/gofile_manager.py upload --file "$FINAL_FILE_PATH" --list-file "compressed_videos_list.txt" > /dev/null 2>&1
   
-  # （可选但强烈推荐）任务4：清理B2上的临时文件
+  # 任务4：使用Rclone清理B2上的临时文件
   cleanup_b2:
     runs-on: ubuntu-latest
     needs: merge_from_b2_and_upload
     if: always()
     steps:
-      - name: Install B2 CLI
-        run: pip install --upgrade b2
+      - name: Install Rclone
+        run: sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
-      - name: Delete temporary directory from B2
+      - name: Configure Rclone
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
-          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
-          b2 authorize-account "$B2_KEY_ID" "$B2_APPLICATION_KEY"
-          echo "Deleting remote directory: ${{ env.REMOTE_DIR }}"
-          FILE_VERSIONS=$(b2 ls --long --recursive "${B2_BUCKET_NAME}/${{ env.REMOTE_DIR }}")
-          if [ -n "$FILE_VERSIONS" ]; then
-            echo "$FILE_VERSIONS" | awk '{print $1" "$2}' | while read -r fileId fileName; do
-              if [ -n "$fileId" ] && [ -n "$fileName" ]; then
-                b2 delete-file-version "$fileName" "$fileId"
-              fi
-            done
-          fi
+          mkdir -p ~/.config/rclone
+          echo "[b2_remote]
+          type = b2
+          account = ${B2_KEY_ID}
+          key = ${B2_APPLICATION_KEY}" > ~/.config/rclone/rclone.conf
+
+      # --- 修正点 4 ---
+      - name: Purge temporary directory from B2 with Rclone
+        run: |
+          echo "Purging remote directory: ${{ env.REMOTE_DIR }}"
+          # rclone purge 会删除指定目录及其所有内容，是最高效的清理方式
+          rclone purge "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}"
           echo "Cleanup complete."
