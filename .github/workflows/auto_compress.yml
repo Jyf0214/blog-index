@@ -1,4 +1,4 @@
-name: Video Compression Workflow
+name: Video Compression Workflow Optimized
 
 on:
   workflow_dispatch:
@@ -11,19 +11,30 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Cache Dependencies
+        id: cache-deps
         uses: actions/cache@v4
         with:
           path: |
             /var/cache/apt/archives
+            /var/lib/apt/lists
             ~/.cache/pip
+            /usr/local/bin/ffmpeg
           key: ${{ runner.os }}-deps-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 
       - name: Setup Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          if [ ! -f /usr/local/bin/ffmpeg ]; then
+            echo "FFmpeg not found in cache, installing..."
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+            # 将安装好的 ffmpeg 移动到缓存目录
+            sudo cp /usr/bin/ffmpeg /usr/local/bin/ffmpeg
+          else
+            echo "FFmpeg found in cache."
+            sudo ln -s /usr/local/bin/ffmpeg /usr/bin/ffmpeg || true
+          fi
 
       - name: Clone veiled-journeys repository
         env:
@@ -33,14 +44,12 @@ jobs:
 
       - name: Install Python requirements
         run: |
-          # 假设我们最终的脚本叫 file_manager.py，并且它的依赖在 requirements.txt 中
           pip install -r veiled-journeys/requirements.txt
 
       - name: Download One Video File from Directory
         run: |
           mkdir -p video_work
           cd veiled-journeys
-          # 注意：这里的 webdav_download.py 应该和您的下载逻辑匹配
           python webdav_download.py -a="MyVideos/" -b="../video_work/" -c=1
           cd ..
 
@@ -59,9 +68,11 @@ jobs:
           COMPRESSED_FILE="compressed_${ORIGINAL_FILENAME}"
           
           echo "Processing file: $ORIGINAL_FILENAME"
-          echo "Starting FFmpeg encoding with high-efficiency settings..."
+          echo "Starting FFmpeg encoding with balanced settings..."
           
-          ffmpeg -i "$ORIGINAL_FILENAME" -c:v libx265 -preset veryslow -crf 18 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
+          # 优化点：将 preset 从 veryslow 改为 medium，速度将大幅提升
+          # CRF 18 依然是高质量的设置
+          ffmpeg -i "$ORIGINAL_FILENAME" -c:v libx265 -preset slow -crf 18 -tag:v hvc1 -c:a copy "$COMPRESSED_FILE"
           
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILENAME")
           COMPRESSED_SIZE=$(stat -c%s "$COMPRESSED_FILE")
