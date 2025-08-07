@@ -5,7 +5,7 @@ on:
 
 env:
   WORKFLOW_RUN_ID: ${{ github.run_id }}
-  SEGMENT_DURATION_SECONDS: 30
+  SEGMENT_DURATION_SECONDS: 45
 
 jobs:
   # 任务1：分割视频并生成矩阵所需的JSON数组
@@ -106,7 +106,7 @@ jobs:
           SEGMENT_FILE="video_segments/segment_${FORMATTED_INDEX}.mp4"
           
           echo "Processing segment: $SEGMENT_FILE"
-          ffmpeg -i "$SEGMENT_FILE" -c:v libx265 -preset veryslow -crf 23 -tag:v hvc1 -c:a copy "compressed_segment/compressed_${FORMATTED_INDEX}.mp4"
+          ffmpeg -i "$SEGMENT_FILE" -c:v libx265 -preset veryslow -threads 16 -crf 18 -tag:v hvc1 -c:a copy "compressed_segment/compressed_${FORMATTED_INDEX}.mp4"
 
       - name: Save Compressed Segment to Cache
         uses: actions/cache/save@v4
