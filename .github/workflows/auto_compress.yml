@@ -19,8 +19,10 @@ jobs:
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
+      # --- 修正点 ---
       - name: Clone scripts repository
-        env: { PAT: ${{ secrets.PAT }} }
+        env:
+          PAT: ${{ secrets.PAT }}
         run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
 
       - name: Install Python requirements
@@ -36,7 +38,7 @@ jobs:
         run: |
           mkdir -p video_segments
           ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
-          ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 25 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
+          ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 20 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
           COUNT=$(ls -1 video_segments/*.mp4 | wc -l)
           echo "Generated $COUNT segments."
           echo "count=$COUNT" >> $GITHUB_OUTPUT
@@ -122,8 +124,6 @@ jobs:
 
       - name: Configure Rclone for B2
         env:
-          # 注意：rclone仍然需要Key来认证和列出文件，即使下载使用Download URL。
-          # 建议为此创建一个权限为 "readFiles" 的只读Key。
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
           B2_DOWNLOAD_URL: ${{ secrets.B2_DOWNLOAD_URL }}
@@ -138,11 +138,12 @@ jobs:
       - name: Download all compressed segments from B2
         run: |
           mkdir -p compressed_segments
-          # 使用 rclone copy 下载整个目录
           rclone copy "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed" ./compressed_segments
 
+      # --- 修正点 ---
       - name: Clone scripts repository
-        env: { PAT: ${{ secrets.PAT }} }
+        env:
+          PAT: ${{ secrets.PAT }}
         run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
       
       - name: Install Python requirements
@@ -185,8 +186,8 @@ jobs:
   # （可选但强烈推荐）任务4：清理B2上的临时文件
   cleanup_b2:
     runs-on: ubuntu-latest
-    needs: merge_from_b2_and_upload # 在主流程结束后运行
-    if: always() # 无论主流程成功或失败，都尝试清理
+    needs: merge_from_b2_and_upload
+    if: always()
     steps:
       - name: Install B2 CLI
         run: pip install --upgrade b2
@@ -199,10 +200,12 @@ jobs:
         run: |
           b2 authorize-account "$B2_KEY_ID" "$B2_APPLICATION_KEY"
           echo "Deleting remote directory: ${{ env.REMOTE_DIR }}"
-          # 列出所有文件版本并删除
-          b2 ls --long --recursive "${B2_BUCKET_NAME}/${{ env.REMOTE_DIR }}" | awk '{print $1" "$2}' | while read -r fileId fileName; do
-            if [ -n "$fileId" ] && [ -n "$fileName" ]; then
-              b2 delete-file-version "$fileName" "$fileId"
-            fi
-          done
+          FILE_VERSIONS=$(b2 ls --long --recursive "${B2_BUCKET_NAME}/${{ env.REMOTE_DIR }}")
+          if [ -n "$FILE_VERSIONS" ]; then
+            echo "$FILE_VERSIONS" | awk '{print $1" "$2}' | while read -r fileId fileName; do
+              if [ -n "$fileId" ] && [ -n "$fileName" ]; then
+                b2 delete-file-version "$fileName" "$fileId"
+              fi
+            done
+          fi
           echo "Cleanup complete."
