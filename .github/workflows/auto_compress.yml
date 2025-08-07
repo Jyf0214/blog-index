@@ -66,6 +66,7 @@ jobs:
           cd /home/runner/work
 
       # ---------- 分段压缩处理 ----------
+      # ---------- 分段压缩处理（串行版） ----------
       - name: Process Video in Segments to Avoid Timeout
         id: process
         shell: bash
@@ -79,10 +80,10 @@ jobs:
           ORIGINAL_FILENAME=$(basename "$ORIGINAL_FILE_PATH")
           echo "Processing file: $ORIGINAL_FILENAME"
 
-          # 创建临时目录
+          # 1. 创建临时目录
           mkdir -p segments compressed_segments
 
-          # 1. 无损分割
+          # 2. 高效无损分割
           echo "Step 1: Splitting video into ~10 minute segments (lossless)..."
           ffmpeg -i "$ORIGINAL_FILENAME" \
                  -f segment \
@@ -90,37 +91,45 @@ jobs:
                  -c copy \
                  -reset_timestamps 1 \
                  "segments/segment_%03d.mp4"
+          echo "Splitting complete."
 
-          # 2. 并行压缩
-          echo "Step 2: Compressing segments in parallel..."
+          # 3. 串行压缩 (Sequential Compression) - 更稳定可靠
+          echo "Step 2: Compressing segments sequentially..."
           CONCAT_LIST_FILE="concat_list.txt"
           > "$CONCAT_LIST_FILE"
 
           find segments -type f -name "*.mp4" | sort | while read -r f; do
             BASENAME=$(basename "$f")
             COMPRESSED_SEGMENT_PATH="compressed_segments/$BASENAME"
-            echo "Queueing compression for $f -> $COMPRESSED_SEGMENT_PATH"
+            echo "Compressing $f -> $COMPRESSED_SEGMENT_PATH..."
 
-            nohup ffmpeg -i "$f" \
-                         -c:v libx265 \
-                         -preset medium \
-                         -crf 18 \
-                         -tag:v hvc1 \
-                         -c:a copy \
-                         "$COMPRESSED_SEGMENT_PATH" > /dev/null 2>&1 &
+            # 前台执行，确保失败即停止
+            ffmpeg -i "$f" \
+                   -c:v libx265 \
+                   -preset medium \
+                   -crf 18 \
+                   -tag:v hvc1 \
+                   -c:a copy \
+                   "$COMPRESSED_SEGMENT_PATH"
 
-            echo "file '$COMPRESSED_SEGMENT_PATH'" >> "$CONCAT_LIST_FILE"
+            # 验证压缩产物
+            if [ -s "$COMPRESSED_SEGMENT_PATH" ]; then
+              echo "Compression successful for $BASENAME."
+              echo "file '$COMPRESSED_SEGMENT_PATH'" >> "$CONCAT_LIST_FILE"
+            else
+              echo "::error::Compression failed for $BASENAME, output file is missing or empty!"
+              exit 1
+            fi
           done
 
-          wait
           echo "All segments compressed."
 
-          # 3. 无损合并
+          # 4. 无损合并
           echo "Step 3: Merging compressed segments (lossless)..."
           MERGED_FILENAME="compressed_${ORIGINAL_FILENAME}"
           ffmpeg -f concat -safe 0 -i "$CONCAT_LIST_FILE" -c copy "$MERGED_FILENAME"
 
-          # 4. 大小比较 & 清理
+          # 5. 比较和清理
           echo "Step 4: Comparing sizes and cleaning up..."
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILENAME")
 
@@ -140,13 +149,11 @@ jobs:
               rm "$MERGED_FILENAME"
             fi
           else
-            echo "::error::Merged file is empty or does not exist. Compression likely failed. Keeping original."
+            echo "::error::Merged file is empty or does not exist. Keeping original."
             FINAL_FILENAME="$ORIGINAL_FILENAME"
           fi
 
-          # 清理临时文件
           rm -rf segments compressed_segments "$CONCAT_LIST_FILE"
-
           echo "final_file=/mnt/ramdisk/video_work/$FINAL_FILENAME" >> "$GITHUB_OUTPUT"
           cd /home/runner/work
 
