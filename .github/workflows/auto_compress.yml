@@ -89,7 +89,7 @@ jobs:
           echo "Step 1: Splitting video into segments..."
           ffmpeg -i "$ORIGINAL_FILENAME" \
                  -f segment \
-                 -segment_time 300 \
+                 -segment_time 2 \
                  -c copy \
                  -reset_timestamps 1 \
                  "segments/segment_%03d.mp4"
@@ -106,7 +106,7 @@ jobs:
 
             # 【核心优化】添加 -threads 0 参数
             ffmpeg -i "$f" \
-                   -threads 0 \
+                   -threads 16 \
                    -c:v libx265 \
                    -preset veryslow \
                    -crf 18 \
