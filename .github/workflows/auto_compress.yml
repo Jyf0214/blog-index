@@ -4,20 +4,16 @@ on:
   workflow_dispatch:
 
 env:
-  # 使用 workflow run ID 作为所有缓存的唯一标识，确保隔离和安全
   WORKFLOW_RUN_ID: ${{ github.run_id }}
-  # 设置每个视频片段的时长（秒）。600秒 = 10分钟。
-  # 如果视频总时长2小时（7200秒），将会产生 7200/600 = 12个片段。
-  # 调整这个值可以控制片段的数量。
-  SEGMENT_DURATION_SECONDS: 30
+  SEGMENT_DURATION_SECONDS: 600
 
 jobs:
-  # 任务1：分割原始视频为多个片段
+  # 任务1：分割视频并生成矩阵所需的JSON数组
   split_video:
     runs-on: ubuntu-latest
     outputs:
-      # 输出片段总数，供后续的矩阵任务使用
-      segment_count: ${{ steps.split.outputs.count }}
+      # 输出矩阵所需的JSON数组字符串，例如 "[0,1,2]"
+      matrix_payload: ${{ steps.split.outputs.matrix_array }}
     steps:
       - name: Install FFmpeg
         run: |
@@ -39,19 +35,32 @@ jobs:
           mkdir -p original_video
           python veiled-journeys/webdav_download.py -a="MyVideos/" -b="./original_video/" -c=1
 
-      - name: Split video into segments
+      - name: Split video and generate matrix payload
         id: split
         run: |
           mkdir -p video_segments
           ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
           
           echo "Splitting '$ORIGINAL_FILE' into ${{ env.SEGMENT_DURATION_SECONDS }}s segments..."
-          # 使用 segment muxer 进行快速无损分割
           ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time ${{ env.SEGMENT_DURATION_SECONDS }} -reset_timestamps 1 "video_segments/segment_%03d.mp4"
           
           COUNT=$(ls -1 video_segments/*.mp4 | wc -l)
           echo "Generated $COUNT segments."
-          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+          # --- 核心修正 ---
+          # 在 shell 中直接生成 JSON 数组字符串
+          # seq 0 ($COUNT - 1) 会生成 0 1 2 ...
+          # tr '\n' ',' 会将换行符替换为逗号 -> "0,1,2,"
+          # sed 's/,$//' 会移除最后一个逗号 -> "0,1,2"
+          if [ "$COUNT" -gt 0 ]; then
+            SEQUENCE=$(seq 0 $(($COUNT - 1)) | tr '\n' ',' | sed 's/,$//')
+            JSON_ARRAY="[${SEQUENCE}]"
+          else
+            JSON_ARRAY="[]"
+          fi
+          
+          echo "Generated matrix payload: ${JSON_ARRAY}"
+          echo "matrix_array=${JSON_ARRAY}" >> $GITHUB_OUTPUT
 
       - name: Save Original Video to Cache
         uses: actions/cache/save@v4
@@ -65,18 +74,17 @@ jobs:
           path: video_segments/
           key: segments-${{ env.WORKFLOW_RUN_ID }}
 
-  # 任务2：并行压缩所有视频片段（带数量限制）
+  # 任务2：并行压缩所有视频片段
   compress_segments:
     runs-on: ubuntu-latest
-    needs: split_video # 依赖于分割任务
+    needs: split_video
     strategy:
-      fail-fast: false # 一个job失败不影响其他
-      # --- 核心改进 ---
-      # 限制并行运行的job最大数量为10
+      fail-fast: false
       max-parallel: 10
       matrix:
-        # 根据上一个任务的输出，动态生成一个从0到N-1的序列
-        segment_index: ${{ fromJson(format('[{0}]', join(range(0, needs.split_video.outputs.segment_count), ','))) }}
+        # --- 核心修正 ---
+        # 使用 fromJSON() 来解析上一个任务输出的字符串
+        segment_index: ${{ fromJSON(needs.split_video.outputs.matrix_payload) }}
         
     steps:
       - name: Install FFmpeg
@@ -94,7 +102,6 @@ jobs:
       - name: Process One Segment with 'veryslow' preset
         run: |
           mkdir -p compressed_segment
-          # 格式化索引以匹配文件名 (e.g., 1 -> 001)
           FORMATTED_INDEX=$(printf "%03d" ${{ matrix.segment_index }})
           SEGMENT_FILE="video_segments/segment_${FORMATTED_INDEX}.mp4"
           
@@ -105,13 +112,12 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: compressed_segment/
-          # 每个job保存自己独立的缓存
           key: compressed-${{ env.WORKFLOW_RUN_ID }}-${{ matrix.segment_index }}
 
-  # 任务3：合并所有压缩好的片段并上传
+  # 任务3：合并所有压缩好的片段并上传（此部分无改动）
   merge_and_upload:
     runs-on: ubuntu-latest
-    needs: [split_video, compress_segments] # 等待分割和所有压缩任务完成
+    needs: [split_video, compress_segments]
     steps:
       - name: Install FFmpeg
         run: |
@@ -126,11 +132,9 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Restore All Compressed Segments from Cache
-        # 注意：这里我们只恢复压缩后的片段
         uses: actions/cache/restore@v4
         with:
-          path: ./ # 恢复到当前工作目录根
-          # 使用前缀来恢复所有由 compress_segments 任务创建的缓存
+          path: ./
           restore-keys: |
             compressed-${{ env.WORKFLOW_RUN_ID }}-
           fail-on-cache-miss: true
@@ -148,17 +152,11 @@ jobs:
       - name: Merge compressed segments
         id: merge
         run: |
-          # 创建一个文件列表，供 FFmpeg concat 使用
-          # 使用 sort -V (version sort) 确保文件按数字顺序排列，这非常重要！
           find . -path "*compressed_segment/*.mp4" | sort -V | while read -r f; do echo "file '$f'" >> file_list.txt; done
-          
           echo "--- File List for Concat ---"
           cat file_list.txt
           echo "----------------------------"
-
-          # 使用 concat demuxer 进行快速无损合并
           ffmpeg -f concat -safe 0 -i file_list.txt -c copy final_video.mp4
-
           echo "final_file_path=final_video.mp4" >> $GITHUB_OUTPUT
 
       - name: Compare sizes and select final file
@@ -166,13 +164,10 @@ jobs:
         run: |
           ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
           MERGED_FILE="${{ steps.merge.outputs.final_file_path }}"
-
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
           MERGED_SIZE=$(stat -c%s "$MERGED_FILE")
-
           echo "Original size: $ORIGINAL_SIZE bytes"
           echo "Merged compressed size: $MERGED_SIZE bytes"
-
           FINAL_FILE_PATH="$ORIGINAL_FILE"
           if [ "$MERGED_SIZE" -lt "$ORIGINAL_SIZE" ] && [ "$MERGED_SIZE" -gt 0 ]; then
             echo "Merged file is smaller. Selecting merged version."
@@ -180,7 +175,6 @@ jobs:
           else
             echo "Merged file is not smaller or is empty. Selecting original version."
           fi
-          
           echo "final_file=$FINAL_FILE_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload Final Video to GoFile
