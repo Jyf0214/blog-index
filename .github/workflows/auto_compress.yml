@@ -5,7 +5,7 @@ on:
 
 env:
   WORKFLOW_RUN_ID: ${{ github.run_id }}
-  SEGMENT_DURATION_SECONDS: 600
+  SEGMENT_DURATION_SECONDS: 30
 
 jobs:
   # 任务1：分割视频并生成矩阵所需的JSON数组
