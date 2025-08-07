@@ -6,8 +6,9 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      # 缓存和依赖安装步骤保持不变
+      # ---------- 缓存 & 依赖 ----------
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -31,21 +32,22 @@ jobs:
             echo "FFmpeg/FFprobe not found in cache, installing..."
             sudo apt-get update
             sudo apt-get install -y ffmpeg
-            sudo cp /usr/bin/ffmpeg /usr/local/bin/ffmpeg
+            sudo cp /usr/bin/ffmpeg  /usr/local/bin/ffmpeg
             sudo cp /usr/bin/ffprobe /usr/local/bin/ffprobe
           else
             echo "FFmpeg/FFprobe found in cache."
-            sudo ln -s /usr/local/bin/ffmpeg /usr/bin/ffmpeg || true
+            sudo ln -s /usr/local/bin/ffmpeg  /usr/bin/ffmpeg  || true
             sudo ln -s /usr/local/bin/ffprobe /usr/bin/ffprobe || true
           fi
 
+      # ---------- 创建 RAM Disk ----------
       - name: Create RAM Disk
         run: |
-          sudo mkdir /mnt/ramdisk
+          sudo mkdir -p /mnt/ramdisk
           sudo mount -t tmpfs -o size=4G tmpfs /mnt/ramdisk
           df -h
 
-      # 克隆、安装、下载等步骤全部指向 RAM Disk
+      # ---------- 克隆仓库 & 下载素材 ----------
       - name: Clone veiled-journeys repository
         env:
           PAT: ${{ secrets.PAT }}
@@ -63,88 +65,92 @@ jobs:
           python webdav_download.py -a="MyVideos/" -b="../video_work/" -c=1
           cd /home/runner/work
 
-      # 最核心的步骤：分段处理
+      # ---------- 分段压缩处理 ----------
       - name: Process Video in Segments to Avoid Timeout
         id: process
+        shell: bash
         run: |
-          set -e # 如果任何命令失败，立即退出
+          set -e
           cd /mnt/ramdisk/video_work
 
+          # 查找第一个 mp4 文件
           ORIGINAL_FILE_PATH=$(find . -maxdepth 1 -type f -name "*.mp4" -print -quit)
-          if [ -z "$ORIGINAL_FILE_PATH" ]; then
-            echo "::error::No .mp4 file found!"
-            exit 1
-          fi
+          [ -z "$ORIGINAL_FILE_PATH" ] && { echo "::error::No .mp4 file found!"; exit 1; }
           ORIGINAL_FILENAME=$(basename "$ORIGINAL_FILE_PATH")
-          
           echo "Processing file: $ORIGINAL_FILENAME"
 
-          # 1. 创建临时目录
+          # 创建临时目录
           mkdir -p segments compressed_segments
-          
-          # 2. 分析：获取所有关键帧的时间戳，并格式化为逗号分隔的列表
-          echo "Step 1: Analyzing keyframes..."
-          KEYFRAME_TIMES=$(ffprobe -v error -select_streams v:0 -show_entries frame=key_frame,pkt_pts_time -of csv=p=0 "$ORIGINAL_FILENAME" | grep "1," | cut -d',' -f2 | tr '\n' ',' | sed 's/,$//')
-          
-          if [ -z "$KEYFRAME_TIMES" ]; then
-            echo "::error::Could not find any keyframes in the video!"
-            exit 1
-          fi
 
-          # 3. 无损分割：使用 segment muxer 快速分割视频
-          echo "Step 2: Splitting video at keyframes (lossless)..."
-          ffmpeg -i "$ORIGINAL_FILENAME" -f segment -segment_times "$KEYFRAME_TIMES" -reset_timestamps 1 -c copy "segments/segment_%03d.mp4"
+          # 1. 无损分割
+          echo "Step 1: Splitting video into ~10 minute segments (lossless)..."
+          ffmpeg -i "$ORIGINAL_FILENAME" \
+                 -f segment \
+                 -segment_time 600 \
+                 -c copy \
+                 -reset_timestamps 1 \
+                 "segments/segment_%03d.mp4"
 
-          # 4. 并行压缩：循环压缩每一个片段
-          echo "Step 3: Compressing segments in parallel..."
+          # 2. 并行压缩
+          echo "Step 2: Compressing segments in parallel..."
           CONCAT_LIST_FILE="concat_list.txt"
           > "$CONCAT_LIST_FILE"
 
-          for f in segments/*.mp4; do
+          find segments -type f -name "*.mp4" | sort | while read -r f; do
             BASENAME=$(basename "$f")
             COMPRESSED_SEGMENT_PATH="compressed_segments/$BASENAME"
-            echo "Compressing $f -> $COMPRESSED_SEGMENT_PATH"
-            # 使用 nohup 和 & 实现并行处理
-            nohup ffmpeg -i "$f" -c:v libx265 -preset veryslow -crf 18 -tag:v hvc1 -c:a copy "$COMPRESSED_SEGMENT_PATH" > /dev/null 2>&1 &
+            echo "Queueing compression for $f -> $COMPRESSED_SEGMENT_PATH"
+
+            nohup ffmpeg -i "$f" \
+                         -c:v libx265 \
+                         -preset medium \
+                         -crf 18 \
+                         -tag:v hvc1 \
+                         -c:a copy \
+                         "$COMPRESSED_SEGMENT_PATH" > /dev/null 2>&1 &
+
             echo "file '$COMPRESSED_SEGMENT_PATH'" >> "$CONCAT_LIST_FILE"
           done
 
-          # 等待所有后台的 ffmpeg 进程完成
           wait
           echo "All segments compressed."
 
-          # 5. 无损合并：将压缩好的片段合并
-          echo "Step 4: Merging compressed segments (lossless)..."
+          # 3. 无损合并
+          echo "Step 3: Merging compressed segments (lossless)..."
           MERGED_FILENAME="compressed_${ORIGINAL_FILENAME}"
           ffmpeg -f concat -safe 0 -i "$CONCAT_LIST_FILE" -c copy "$MERGED_FILENAME"
 
-          # 6. 比较和清理
-          echo "Step 5: Comparing sizes and cleaning up..."
+          # 4. 大小比较 & 清理
+          echo "Step 4: Comparing sizes and cleaning up..."
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILENAME")
-          COMPRESSED_SIZE=$(stat -c%s "$MERGED_FILENAME")
-          
-          echo "Original size: $ORIGINAL_SIZE bytes"
-          echo "Compressed size: $COMPRESSED_SIZE bytes"
-          
-          FINAL_FILENAME="$ORIGINAL_FILENAME"
-          
-          if [ "$COMPRESSED_SIZE" -gt 0 ] && [ "$ORIGINAL_SIZE" -gt "$COMPRESSED_SIZE" ]; then
-            echo "Compressed file is smaller. Keeping compressed version."
-            # 用合并后的文件替换原始文件，以保持文件名一致
-            mv "$MERGED_FILENAME" "final_output.mp4"
-            rm "$ORIGINAL_FILENAME"
-            mv "final_output.mp4" "$FINAL_FILENAME"
+
+          if [ -s "$MERGED_FILENAME" ]; then
+            COMPRESSED_SIZE=$(stat -c%s "$MERGED_FILENAME")
+            echo "Original size: $ORIGINAL_SIZE bytes"
+            echo "Compressed size: $COMPRESSED_SIZE bytes"
+
+            FINAL_FILENAME="$ORIGINAL_FILENAME"
+            if [ "$ORIGINAL_SIZE" -gt "$COMPRESSED_SIZE" ]; then
+              echo "Compressed file is smaller. Keeping compressed version."
+              mv "$MERGED_FILENAME" "final_output.mp4"
+              rm "$ORIGINAL_FILENAME"
+              mv "final_output.mp4" "$FINAL_FILENAME"
+            else
+              echo "Compressed file is not smaller. Keeping original."
+              rm "$MERGED_FILENAME"
+            fi
           else
-            echo "Compressed file is not smaller or compression failed. Keeping original."
-            rm "$MERGED_FILENAME"
+            echo "::error::Merged file is empty or does not exist. Compression likely failed. Keeping original."
+            FINAL_FILENAME="$ORIGINAL_FILENAME"
           fi
-          
+
           # 清理临时文件
           rm -rf segments compressed_segments "$CONCAT_LIST_FILE"
 
-          echo "final_file=/mnt/ramdisk/video_work/$FINAL_FILENAME" >> $GITHUB_OUTPUT
+          echo "final_file=/mnt/ramdisk/video_work/$FINAL_FILENAME" >> "$GITHUB_OUTPUT"
           cd /home/runner/work
 
+      # ---------- 上传到 GoFile ----------
       - name: Upload to GoFile and Update List (Silent)
         run: |
           python /mnt/ramdisk/veiled-journeys/gofile_manager.py upload \
