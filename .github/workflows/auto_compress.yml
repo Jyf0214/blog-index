@@ -90,7 +90,7 @@ jobs:
           echo "Step 1: Splitting video into segments..."
           ffmpeg -i "$ORIGINAL_FILENAME" \
                  -f segment \
-                 -segment_time 300 \
+                 -segment_time 3 \
                  -c copy \
                  -reset_timestamps 1 \
                  "segments/segment_%03d.mp4"
