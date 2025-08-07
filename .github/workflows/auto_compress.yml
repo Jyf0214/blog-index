@@ -87,7 +87,7 @@ jobs:
           echo "Step 1: Splitting video into ~10 minute segments (lossless)..."
           ffmpeg -i "$ORIGINAL_FILENAME" \
                  -f segment \
-                 -segment_time 600 \
+                 -segment_time 5 \
                  -c copy \
                  -reset_timestamps 1 \
                  "segments/segment_%03d.mp4"
@@ -106,7 +106,7 @@ jobs:
             # 前台执行，确保失败即停止
             ffmpeg -i "$f" \
                    -c:v libx265 \
-                   -preset medium \
+                   -preset veryslow \
                    -crf 18 \
                    -tag:v hvc1 \
                    -c:a copy \
