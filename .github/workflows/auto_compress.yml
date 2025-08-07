@@ -36,7 +36,7 @@ jobs:
         run: |
           mkdir -p video_segments
           ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
-          ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 600 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
+          ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 25 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
           COUNT=$(ls -1 video_segments/*.mp4 | wc -l)
           echo "Generated $COUNT segments."
           echo "count=$COUNT" >> $GITHUB_OUTPUT
@@ -89,7 +89,7 @@ jobs:
           FORMATTED_INDEX=$(printf "%03d" ${{ matrix.segment_index }})
           INPUT_FILE="video_segments/segment_${FORMATTED_INDEX}.mp4"
           OUTPUT_FILE="compressed_output/compressed_${FORMATTED_INDEX}.mp4"
-          ffmpeg -i "$INPUT_FILE" -c:v libx265 -preset veryslow -crf 23 -tag:v hvc1 -c:a copy "$OUTPUT_FILE"
+          ffmpeg -i "$INPUT_FILE" -c:v libx265 -preset fast -crf 23 -tag:v hvc1 -c:a copy "$OUTPUT_FILE"
           echo "output_file=$OUTPUT_FILE" >> $GITHUB_OUTPUT
 
       - name: Upload Compressed Segment to B2
