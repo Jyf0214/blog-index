@@ -1,17 +1,15 @@
 name: Auto-sign
 
 on:
-  # 定时任务触发
   schedule:
     - cron: '0 21 * * *'
-  # 手动触发
   workflow_dispatch:
 
 jobs:
   auto-sign:
     runs-on: ubuntu-latest
     steps:
-      # 步骤 1-5: 保持不变 (检出、设置Python、缓存、克隆、安装全局依赖)
+      # 步骤 1-5: 保持不变
       - uses: actions/checkout@v4
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
@@ -31,13 +29,18 @@ jobs:
           git clone https://Jyf0214:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
       - name: Install dependencies for sandboxed code
         run: |
-          pip install -r veiled-journeys/requirements.txt
+          # 只需要安装 cryptography 即可，其他业务依赖由沙箱内代码自行处理
+          pip install cryptography
+          # 如果您的脚本确实需要全局安装的包，可以在这里安装
+          # pip install -r veiled-journeys/requirements.txt
+      
+      # ========================= 核心修改 =========================
 
-      # 步骤 6: 运行业务逻辑脚本 (保持不变)
-      - name: Run encrypted business logic scripts
+      # 步骤 6: 启动沙箱容器并执行所有任务
+      - name: Run all tasks inside the Veiled-Journeys container
         working-directory: ./veiled-journeys
         env:
-          # ... 所有需要的 secrets ...
+          # 提供所有需要的 secrets
           GitHub_Actions: true
           TOTKEN: ${{ secrets.TOKEN }}
           SUBJECT: ${{ secrets.SUBJECT }}
@@ -47,52 +50,39 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           PHONE: ${{ secrets.PHONE }}
           PASSWORD: ${{ secrets.PASSWORD }}
+          # 关键: 提供解密密码
           Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
         run: |
-          python main.py run skyland.py.enc && \
-          python main.py run smtp.py.enc && \
-          python main.py run bingapi.py.enc && \
-          python main.py run git.py.enc && \
-          python main.py run src/dailymessage.py.enc
+          # 使用 "here document" (<<EOF) 将多行命令作为标准输入传递给 main.py
+          python main.py <<EOF
+          python skyland.py
+          python smtp.py
+          python bingapi.py
+          python git.py
+          python src/dailymessage.py
+          exit
+          EOF
       
-      # ========================= 核心修复部分 =========================
-
-      # 步骤 7: 在 Shell 环境中准备 Skland 的部署包 (采纳您的要求)
-      - name: Prepare Skland package for deployment
-        # 在 Skland 目录下执行所有文件操作
-        working-directory: ./veiled-journeys/Skland
+      # 步骤 7 & 8: 统一在容器内处理部署
+      - name: Prepare and Deploy Skland App inside the container
+        working-directory: ./veiled-journeys
+        env:
+          # ... 部署需要的 secrets ...
+          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Listing files..."
-          ls -la
-
-          echo "Checking for TOKEN.txt..."
+          # 同样，在容器内执行打包和部署脚本
+          python main.py <<EOF
+          cd Skland
+          ls
           if [ ! -f "./TOKEN.txt" ]; then
             echo "Error: Token.txt does not exist."
             exit 1
           fi
-
-          echo "Installing local dependencies for packaging..."
+     
           pip install --target=./ requests cryptography cffi
-
-          echo "Cleaning up unnecessary directories..."
           find . -type d -name '*dist-info' -exec rm -rf {} +
-
-          echo "Zipping contents into code.zip..."
           zip -r code.zip .
-          
-          echo "Package preparation complete. code.zip is ready."
-
-      # 步骤 8: 运行加密的部署脚本来上传打包好的文件
-      - name: Deploy Skland package to HWAWAI FC
-        working-directory: ./veiled-journeys
-        env:
-          # 部署脚本同样需要所有 secrets
-          GitHub_Actions: true
-          # ... 这里可以只包含部署需要的 secrets ...
-          HWAWAI_FC_ACCESS_KEY: ${{ secrets.HWAWAI_FC_ACCESS_KEY }} # 示例
-          HWAWAI_FC_SECRET_KEY: ${{ secrets.HWAWAI_FC_SECRET_KEY }} # 示例
-          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
-        run: |
-          # 调用加密的 sync.py，它的任务是上传上一步生成的 code.zip
-          python main.py run Skland/sync.py.enc
+          python sync.py
+          python Skland/sync.py
+          exit
+          EOF
