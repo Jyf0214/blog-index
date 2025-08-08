@@ -31,7 +31,7 @@ jobs:
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+          git clone https://x-access-token:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
 
       - name: Install dependencies globally
         run: |
