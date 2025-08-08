@@ -1,4 +1,4 @@
-name: Rclone-Unified Parallel Video Compression (Corrected Cache)
+name: Rclone-Unified Parallel Video Compression (Corrected Cache & Filename)
 
 on:
   workflow_dispatch:
@@ -8,11 +8,13 @@ env:
   WORKFLOW_RUN_ID: ${{ github.run_id }}
 
 jobs:
-  # 任务1：分割视频，并将数据存入两个独立的缓存
+  # 任务1：分割视频，并将数据存入两个独立的缓存，同时捕获原始文件名
   split_and_cache:
     runs-on: ubuntu-latest
     outputs:
       matrix_payload: ${{ steps.split.outputs.matrix_array }}
+      # --- 修改点 1：将原始文件名作为此任务的输出 ---
+      original_filename: ${{ steps.split.outputs.original_filename }}
     steps:
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -30,11 +32,15 @@ jobs:
           mkdir -p original_video
           python veiled-journeys/webdav_download.py -a="MyVideos/" -b="./original_video/" -c=1
 
-      - name: Split video and generate matrix
+      - name: Split video, generate matrix, and get filename
         id: split
         run: |
           mkdir -p video_segments
           ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
+          # --- 修改点 2：从完整路径中提取文件名并设置为输出变量 ---
+          ORIGINAL_FILENAME=$(basename "$ORIGINAL_FILE")
+          echo "original_filename=${ORIGINAL_FILENAME}" >> $GITHUB_OUTPUT
+
           ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 60 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
           COUNT=$(ls -1 video_segments/*.mp4 | wc -l)
           echo "count=$COUNT" >> $GITHUB_OUTPUT
@@ -46,21 +52,19 @@ jobs:
           fi
           echo "matrix_array=${JSON_ARRAY}" >> $GITHUB_OUTPUT
 
-      # --- 修正点 1：为原始视频创建独立缓存 ---
       - name: Save Original Video to Cache
         uses: actions/cache/save@v4
         with:
           path: original_video/
           key: original-${{ env.WORKFLOW_RUN_ID }}
 
-      # --- 修正点 2：为视频片段创建独立缓存 ---
       - name: Save Segments to Cache
         uses: actions/cache/save@v4
         with:
           path: video_segments/
           key: segments-${{ env.WORKFLOW_RUN_ID }}
 
-  # 任务2：使用Rclone上传压缩片段
+  # 任务2：使用Rclone上传压缩片段 (此任务无需修改)
   compress_and_upload_to_b2:
     runs-on: ubuntu-latest
     needs: split_and_cache
@@ -75,14 +79,13 @@ jobs:
           sudo apt-get update && sudo apt-get install -y ffmpeg
           sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
-      # --- 修正点 3：只恢复视频片段的缓存 ---
       - name: Restore Uncompressed Segments from Cache
         uses: actions/cache/restore@v4
         with:
           path: video_segments/
           key: segments-${{ env.WORKFLOW_RUN_ID }}
           fail-on-cache-miss: true
-      
+
       - name: Configure Rclone
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
@@ -110,7 +113,7 @@ jobs:
           BASENAME=$(basename "$OUTPUT_FILE")
           rclone copyto "$OUTPUT_FILE" "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed/${BASENAME}"
 
-  # 任务3：从B2下载、合并并上传
+  # 任务3：从B2下载、合并并上传，使用正确的最终文件名
   merge_from_b2_and_upload:
     runs-on: ubuntu-latest
     needs: [split_and_cache, compress_and_upload_to_b2]
@@ -120,7 +123,6 @@ jobs:
           sudo apt-get update && sudo apt-get install -y ffmpeg
           sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
-      # --- 修正点 4：只恢复原始视频的缓存 ---
       - name: Restore Original Video from Cache
         uses: actions/cache/restore@v4
         with:
@@ -155,20 +157,29 @@ jobs:
       
       - name: Merge, Compare and Upload
         id: merge_and_select
+        # --- 修改点 3：通过 env 将原始文件名传入此步骤 ---
+        env:
+          ORIGINAL_FILENAME: ${{ needs.split_and_cache.outputs.original_filename }}
         run: |
           if ! find ./compressed_segments -mindepth 1 -type f -name "*.mp4" | read; then
             echo "::error::No compressed segments were downloaded from B2."
             exit 1
           fi
+          
           find ./compressed_segments -type f -name "*.mp4" | sort -V | while read -r f; do echo "file '$f'" >> file_list.txt; done
-          ffmpeg -f concat -safe 0 -i file_list.txt -c copy final_video.mp4
+          
+          # --- 修改点 4：使用传入的 ORIGINAL_FILENAME 作为合并后视频的文件名 ---
+          echo "Merging segments into final file: ${ORIGINAL_FILENAME}"
+          ffmpeg -f concat -safe 0 -i file_list.txt -c copy "${ORIGINAL_FILENAME}"
           
           ORIGINAL_FILE=$(find ./original_video -type f -name "*.mp4")
-          MERGED_FILE="final_video.mp4"
+          # --- 修改点 5：将 MERGED_FILE 指向新生成的、具有正确名称的文件 ---
+          MERGED_FILE="${ORIGINAL_FILENAME}"
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
           MERGED_SIZE=$(stat -c%s "$MERGED_FILE")
           FINAL_FILE_PATH="$ORIGINAL_FILE"
           
+          # 比较逻辑保持不变，但现在比较的是正确命名的文件
           if [ -f "$MERGED_FILE" ] && [ "$MERGED_SIZE" -lt "$ORIGINAL_SIZE" ] && [ "$MERGED_SIZE" -gt 0 ]; then
             FINAL_FILE_PATH="$MERGED_FILE"
           fi
@@ -181,7 +192,7 @@ jobs:
           echo "Uploading ${FINAL_FILE_TO_UPLOAD}..."
           python veiled-journeys/gofile_manager.py upload --file "$FINAL_FILE_TO_UPLOAD" --list-file "compressed_videos_list.txt" > /dev/null 2>&1
   
-  # 任务4：使用Rclone清理B2上的临时文件
+  # 任务4：清理B2 (此任务无需修改)
   cleanup_b2:
     runs-on: ubuntu-latest
     needs: merge_from_b2_and_upload
