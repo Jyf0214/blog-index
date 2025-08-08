@@ -1,4 +1,4 @@
-name: Auto-sign
+name: Auto-sign (Encrypted Workflow)
 
 on:
   # 定时任务触发
@@ -8,37 +8,40 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 自动测试作业
-  auto-sign:
+  auto-sign-encrypted:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # 步骤 1: 检出包含 main.py 和加密代码的 "安全包" 仓库
+      - name: Checkout Secure Package Repository
+        uses: actions/checkout@v4
+        # 假设此工作流文件就在 veiled-journeys 仓库中
+        # 如果在不同的仓库，需要提供 repo 和 token
+        # with:
+        #   repository: 'Jyf0214/veiled-journeys'
+        #   token: ${{ secrets.GITCODE_TOKEN }} # 用于 checkout 私有仓库的 PAT
 
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
 
-      - name: Cache pip dependencies
+      # 步骤 2: 安装所有依赖
+      # requirements.txt 现在位于仓库根目录
+      - name: Install dependencies from requirements.txt
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-
-      - name: Clone private repository
-        env:
-          PAT: ${{ secrets.PAT }}
         run: |
-          git clone https://x-access-token:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
+          pip install -r requirements.txt
 
-      - name: Install dependencies globally
-        run: |
-          pip install -r veiled-journeys/requirements.txt
-
-      - name: Run veiled-journeys scripts
+      # 步骤 3: 通过 main.py 启动器运行所有加密脚本
+      # 这是核心修改。所有脚本都通过 main.py 来执行。
+      - name: Run Encrypted Scripts via Launcher
         env:
+          # 所有 secrets 照常传入，main.py 会让沙箱内代码正常读取它们
           GitHub_Actions: true
           TOTKEN: ${{ secrets.TOKEN }}
           SUBJECT: ${{ secrets.SUBJECT }}
@@ -48,26 +51,46 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           PHONE: ${{ secrets.PHONE }}
           PASSWORD: ${{ secrets.PASSWORD }}
+          # 解密主密码，这是最重要的 secret！
+          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
         run: |
-          cd veiled-journeys
-          python skyland.py
-          python smtp.py
-          python bingapi.py
-          python git.py
-          python src/dailymessage.py
+          # 以前是 `python skyland.py`，现在是...
+          # 注意：脚本的路径是它在加密仓库中的路径
+          # 我们用 && 连接命令，如果任何一个脚本失败，整个作业就会失败
+          python main.py run Skland/skyland.py.enc && \
+          python main.py run smtp.py.enc && \
+          python main.py run bingapi.py.enc && \
+          python main.py run git.py.enc && \
+          python main.py run src/dailymessage.py.enc
 
-      - name: Process Skland App and Deploy to HWAWAI FC
+      # 步骤 4: 处理 Skland App 并部署
+      # 这里的逻辑也需要适配沙箱环境的文件输出位置
+      - name: Process Skland App and Deploy to HUAWEI FC
         run: |
-          # 检查 Token.txt 文件是否存在且内容合法
-          cd veiled-journeys/Skland
-          ls
-          if [ ! -f "./TOKEN.txt" ]; then
-            echo "Error: Token.txt does not exist."
+          # 因为 skyland.py 在沙箱中运行时，其工作目录是 'Jyf0214/Skland'，
+          # 所以它生成的 TOKEN.txt 文件会出现在物理路径 'Jyf0214/Skland/TOKEN.txt'
+          SKLAND_DIR="Jyf0214/Skland"
+          
+          echo "Checking for generated token in ${SKLAND_DIR}/TOKEN.txt"
+          ls -l $SKLAND_DIR
+
+          if [ ! -f "${SKLAND_DIR}/TOKEN.txt" ]; then
+            echo "Error: Token.txt was not generated in ${SKLAND_DIR}."
             exit 1
           fi
-     
-          pip install --target=./ requests cryptography cffi
-          find . -type d -name '*dist-info' -exec rm -rf {} +
+          
+          echo "Token file found. Proceeding with packaging."
+          
+          # 将依赖安装到沙箱的 "家" 目录下的对应位置
+          pip install --target=${SKLAND_DIR} requests cryptography cffi
+          
+          # 清理不必要的文件
+          find ${SKLAND_DIR} -type d -name '*dist-info' -exec rm -rf {} +
+          
+          # 进入该目录并打包
+          cd $SKLAND_DIR
           zip -r code.zip .
-          python sync.py
-
+          
+          # 回到主目录，通过 main.py 运行加密的部署脚本
+          cd ../../
+          python main.py run Skland/sync.py.enc
