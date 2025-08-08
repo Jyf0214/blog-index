@@ -32,7 +32,7 @@ jobs:
           # 全局只需要安装 cryptography
           pip install cryptography
           # 如果有其他必要全局包，在这里安装
-          # pip install -r veiled-journeys/requirements.txt
+          pip install -r veiled-journeys/requirements.txt
       
       # ========================= 核心修复 =========================
       # 步骤 5: 创建并进入沙箱工作区
