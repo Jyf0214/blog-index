@@ -87,6 +87,7 @@ jobs:
         # --- 核心改动: 将用户输入设置为环境变量 ---
         run: |
           cd veiled-journeys
+          python process_images.py
           python detect_nsfw.py
           
 
