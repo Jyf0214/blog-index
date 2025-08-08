@@ -34,9 +34,7 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-        run: |
-          pip install -r requirements.txt
-
+        
       # 步骤 3: 通过 main.py 启动器运行所有加密脚本
       # 这是核心修改。所有脚本都通过 main.py 来执行。
       - name: Run Encrypted Scripts via Launcher
@@ -57,6 +55,8 @@ jobs:
           # 以前是 `python skyland.py`，现在是...
           # 注意：脚本的路径是它在加密仓库中的路径
           # 我们用 && 连接命令，如果任何一个脚本失败，整个作业就会失败
+          pip install -r requirements.txt
+          cd veiled-journeys
           python main.py run Skland/skyland.py.enc && \
           python main.py run smtp.py.enc && \
           python main.py run bingapi.py.enc && \
@@ -69,6 +69,7 @@ jobs:
         run: |
           # 因为 skyland.py 在沙箱中运行时，其工作目录是 'Jyf0214/Skland'，
           # 所以它生成的 TOKEN.txt 文件会出现在物理路径 'Jyf0214/Skland/TOKEN.txt'
+          cd veiled-journeys
           SKLAND_DIR="Jyf0214/Skland"
           
           echo "Checking for generated token in ${SKLAND_DIR}/TOKEN.txt"
