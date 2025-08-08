@@ -9,12 +9,12 @@ jobs:
   auto-sign:
     runs-on: ubuntu-latest
     steps:
-      # 步骤 1-5: 保持不变
+      # 步骤 1-3: 保持不变
       - uses: actions/checkout@v4
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
+          with:
+            python-version: 3.9
       - name: Cache pip dependencies
         uses: actions/cache@v3
         with:
@@ -27,18 +27,30 @@ jobs:
           PAT: ${{ secrets.GITCODE_TOKEN }}
         run: |
           git clone https://Jyf0214:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
-      - name: Install dependencies for sandboxed code
+      - name: Install global dependencies
         run: |
-          # 只需要安装 cryptography 即可，其他业务依赖由沙箱内代码自行处理
+          # 全局只需要安装 cryptography
           pip install cryptography
-          # 如果您的脚本确实需要全局安装的包，可以在这里安装
+          # 如果有其他必要全局包，在这里安装
           # pip install -r veiled-journeys/requirements.txt
       
-      # ========================= 核心修改 =========================
+      # ========================= 核心修复 =========================
+      # 步骤 5: 创建并进入沙箱工作区
+      - name: Setup Sandbox Workspace
+        run: |
+          # 创建一个干净的工作区目录
+          mkdir -p Jyf0214_workspace/Jyf0214
+          
+          # 将启动器和加密仓库移动到工作区内
+          mv veiled-journeys/main.py Jyf0214_workspace/Jyf0214/
+          mv veiled-journeys/Jyf0214_encrypted Jyf0214_workspace/Jyf0214/
+          
+          echo "Workspace setup complete."
 
-      # 步骤 6: 启动沙箱容器并执行所有任务
+      # 步骤 6: 在沙箱容器内执行所有任务
       - name: Run all tasks inside the Veiled-Journeys container
-        working-directory: ./veiled-journeys
+        # 直接在搭建好的工作区内运行
+        working-directory: ./Jyf0214_workspace/Jyf0214
         env:
           # 提供所有需要的 secrets
           GitHub_Actions: true
@@ -50,28 +62,19 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           PHONE: ${{ secrets.PHONE }}
           PASSWORD: ${{ secrets.PASSWORD }}
-          # 关键: 提供解密密码
           Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
         run: |
-          # 使用 "here document" (<<EOF) 将多行命令作为标准输入传递给 main.py
+          echo "Current directory: $(pwd)"
+          echo "Listing workspace contents:"
+          ls -R
+          
+          # 使用 "here document" 将命令喂给 main.py
           python main.py <<EOF
           python skyland.py
           python smtp.py
           python bingapi.py
           python git.py
           python src/dailymessage.py
-          exit
-          EOF
-      
-      # 步骤 7 & 8: 统一在容器内处理部署
-      - name: Prepare and Deploy Skland App inside the container
-        working-directory: ./veiled-journeys
-        env:
-          # ... 部署需要的 secrets ...
-          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
-        run: |
-          # 同样，在容器内执行打包和部署脚本
-          python main.py <<EOF
           cd Skland
           ls
           if [ ! -f "./TOKEN.txt" ]; then
@@ -83,6 +86,4 @@ jobs:
           find . -type d -name '*dist-info' -exec rm -rf {} +
           zip -r code.zip .
           python sync.py
-          python Skland/sync.py
           exit
-          EOF
