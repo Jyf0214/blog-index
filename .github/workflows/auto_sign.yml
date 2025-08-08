@@ -1,4 +1,4 @@
-name: Auto-sign (Encrypted Workflow)
+name: Auto-sign
 
 on:
   # 定时任务触发
@@ -8,38 +8,36 @@ on:
   workflow_dispatch:
 
 jobs:
-  auto-sign-encrypted:
+  auto-sign:
     runs-on: ubuntu-latest
     steps:
-      # 步骤 1: 检出包含 main.py 和加密代码的 "安全包" 仓库
-      - name: Checkout Secure Package Repository
-        uses: actions/checkout@v4
-        # 假设此工作流文件就在 veiled-journeys 仓库中
-        # 如果在不同的仓库，需要提供 repo 和 token
-        # with:
-        #   repository: 'Jyf0214/veiled-journeys'
-        #   token: ${{ secrets.GITCODE_TOKEN }} # 用于 checkout 私有仓库的 PAT
-
+      # 步骤 1-5: 保持不变 (检出、设置Python、缓存、克隆、安装全局依赖)
+      - uses: actions/checkout@v4
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
-
-      # 步骤 2: 安装所有依赖
-      # requirements.txt 现在位于仓库根目录
-      - name: Install dependencies from requirements.txt
+      - name: Cache pip dependencies
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-        
-      # 步骤 3: 通过 main.py 启动器运行所有加密脚本
-      # 这是核心修改。所有脚本都通过 main.py 来执行。
-      - name: Run Encrypted Scripts via Launcher
+      - name: Clone private repository (veiled-journeys)
         env:
-          # 所有 secrets 照常传入，main.py 会让沙箱内代码正常读取它们
+          PAT: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          git clone https://Jyf0214:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
+      - name: Install dependencies for sandboxed code
+        run: |
+          pip install -r veiled-journeys/requirements.txt
+
+      # 步骤 6: 运行业务逻辑脚本 (保持不变)
+      - name: Run encrypted business logic scripts
+        working-directory: ./veiled-journeys
+        env:
+          # ... 所有需要的 secrets ...
           GitHub_Actions: true
           TOTKEN: ${{ secrets.TOKEN }}
           SUBJECT: ${{ secrets.SUBJECT }}
@@ -49,49 +47,52 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           PHONE: ${{ secrets.PHONE }}
           PASSWORD: ${{ secrets.PASSWORD }}
-          # 解密主密码，这是最重要的 secret！
           Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
         run: |
-          # 以前是 `python skyland.py`，现在是...
-          # 注意：脚本的路径是它在加密仓库中的路径
-          # 我们用 && 连接命令，如果任何一个脚本失败，整个作业就会失败
-          pip install -r requirements.txt
-          cd veiled-journeys
-          python main.py run Skland/skyland.py.enc && \
+          python main.py run skyland.py.enc && \
           python main.py run smtp.py.enc && \
           python main.py run bingapi.py.enc && \
           python main.py run git.py.enc && \
           python main.py run src/dailymessage.py.enc
+      
+      # ========================= 核心修复部分 =========================
 
-      # 步骤 4: 处理 Skland App 并部署
-      # 这里的逻辑也需要适配沙箱环境的文件输出位置
-      - name: Process Skland App and Deploy to HUAWEI FC
+      # 步骤 7: 在 Shell 环境中准备 Skland 的部署包 (采纳您的要求)
+      - name: Prepare Skland package for deployment
+        # 在 Skland 目录下执行所有文件操作
+        working-directory: ./veiled-journeys/Skland
         run: |
-          # 因为 skyland.py 在沙箱中运行时，其工作目录是 'Jyf0214/Skland'，
-          # 所以它生成的 TOKEN.txt 文件会出现在物理路径 'Jyf0214/Skland/TOKEN.txt'
-          cd veiled-journeys
-          SKLAND_DIR="Jyf0214/Skland"
-          
-          echo "Checking for generated token in ${SKLAND_DIR}/TOKEN.txt"
-          ls -l $SKLAND_DIR
+          echo "Current directory: $(pwd)"
+          echo "Listing files..."
+          ls -la
 
-          if [ ! -f "${SKLAND_DIR}/TOKEN.txt" ]; then
-            echo "Error: Token.txt was not generated in ${SKLAND_DIR}."
+          echo "Checking for TOKEN.txt..."
+          if [ ! -f "./TOKEN.txt" ]; then
+            echo "Error: Token.txt does not exist."
             exit 1
           fi
-          
-          echo "Token file found. Proceeding with packaging."
-          
-          # 将依赖安装到沙箱的 "家" 目录下的对应位置
-          pip install --target=${SKLAND_DIR} requests cryptography cffi
-          
-          # 清理不必要的文件
-          find ${SKLAND_DIR} -type d -name '*dist-info' -exec rm -rf {} +
-          
-          # 进入该目录并打包
-          cd $SKLAND_DIR
+
+          echo "Installing local dependencies for packaging..."
+          pip install --target=./ requests cryptography cffi
+
+          echo "Cleaning up unnecessary directories..."
+          find . -type d -name '*dist-info' -exec rm -rf {} +
+
+          echo "Zipping contents into code.zip..."
           zip -r code.zip .
           
-          # 回到主目录，通过 main.py 运行加密的部署脚本
-          cd ../../
+          echo "Package preparation complete. code.zip is ready."
+
+      # 步骤 8: 运行加密的部署脚本来上传打包好的文件
+      - name: Deploy Skland package to HWAWAI FC
+        working-directory: ./veiled-journeys
+        env:
+          # 部署脚本同样需要所有 secrets
+          GitHub_Actions: true
+          # ... 这里可以只包含部署需要的 secrets ...
+          HWAWAI_FC_ACCESS_KEY: ${{ secrets.HWAWAI_FC_ACCESS_KEY }} # 示例
+          HWAWAI_FC_SECRET_KEY: ${{ secrets.HWAWAI_FC_SECRET_KEY }} # 示例
+          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
+        run: |
+          # 调用加密的 sync.py，它的任务是上传上一步生成的 code.zip
           python main.py run Skland/sync.py.enc
