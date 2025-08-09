@@ -36,7 +36,7 @@ jobs:
         env:
           Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
         run: |
-          # 运行新 main.py 的 start 命令
+          pip install -r veiled-journeys/requirements.txt
           python main.py start
       
       # 步骤 6: 安装依赖并执行业务逻辑 (在解密后的目录中)
@@ -69,12 +69,7 @@ jobs:
       # 步骤 7: 执行部署任务 (同样在解密后的目录中)
       - name: Prepare and Deploy Skland App
         working-directory: ./veiled-journeys/Jyf0214/Skland
-        env:
-          # ... 部署需要的 secrets ...
-          HWAWAI_FC_ACCESS_KEY: ${{ secrets.HWAWAI_FC_ACCESS_KEY }} # 示例
-          HWAWAI_FC_SECRET_KEY: ${{ secrets.HWAWAI_FC_SECRET_KEY }} # 示例
         run: |
-          # 这里是您之前坚持的、正确的 Shell 操作
           echo "Checking for TOKEN.txt..."
           if [ ! -f "./TOKEN.txt" ]; then exit 1; fi
 
@@ -87,7 +82,6 @@ jobs:
           echo "Deploying..."
           python sync.py
 
-      # 步骤 8: 清理会话 (无论前面的步骤成功与否，都必须执行)
       - name: Cleanup Session (Remove All Decrypted Files)
         # `if: always()` 确保此步骤总是运行
         if: always()
