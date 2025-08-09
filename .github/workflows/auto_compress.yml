@@ -83,6 +83,7 @@ jobs:
     steps:
       - name: Install Dependencies (ffmpeg, rclone)
         run: |
+          sudo apt-get update 
           sudo apt-get install -y ffmpeg
           sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
@@ -116,6 +117,7 @@ jobs:
     steps:
       - name: Install Dependencies (ffmpeg, rclone)
         run: |
+          sudo apt-get update
           sudo apt-get install -y ffmpeg
           sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
