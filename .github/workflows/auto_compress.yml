@@ -193,7 +193,7 @@ jobs:
         run: |
           FINAL_FILE_TO_UPLOAD=${{ steps.merge_and_select.outputs.final_file }}
           echo "Uploading ${FINAL_FILE_TO_UPLOAD}..."
-          python veiled-journeys/Jyf0214/gofile_manager.py upload --file "$FINAL_FILE_TO_UPLOAD"
+          python veiled-journeys/Jyf0214/gofile_manager.py upload --file "$FINAL_FILE_TO_UPLOAD" --list-file "compressed_videos_list.txt"
 
       - name: Cleanup Session (Remove Decrypted Files)
         if: always()
