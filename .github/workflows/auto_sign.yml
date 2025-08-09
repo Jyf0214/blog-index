@@ -36,7 +36,7 @@ jobs:
         env:
           Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
         run: |
-          pip install -r veiled-journeys/requirements.txt
+          pip install -r requirements.txt
           python main.py start
       
       # 步骤 6: 安装依赖并执行业务逻辑 (在解密后的目录中)
