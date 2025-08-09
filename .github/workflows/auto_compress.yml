@@ -28,7 +28,7 @@ jobs:
       - name: Install Python requirements
         # 从解密后的目录安装，路径为 ../requirements.txt 或绝对路径
         working-directory: ./veiled-journeys
-        run: pip install -r ../requirements.txt
+        run: pip install -r requirements.txt
 
       # --- 适配加密系统的修改点 2 ---
       - name: Start Session (Decrypt veiled-journeys)
@@ -37,7 +37,6 @@ jobs:
           Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
         run: python main.py start
     
-
       - name: Download Original Video (Using Encrypted Script)
         run: |
           mkdir -p original_video
@@ -71,7 +70,6 @@ jobs:
         if: always() # 确保此步骤总是运行
         working-directory: ./veiled-journeys
         run: python main.py cleanup
-
 
   # 任务2：并行压缩和上传 (此任务不涉及 Python 脚本，无需修改)
   compress_and_upload_to_b2:
@@ -150,7 +148,7 @@ jobs:
        # --- 适配加密系统的修改点 7 ---
       - name: Install Python requirements
         working-directory: ./veiled-journeys
-        run: pip install -r ../requirements.txt
+        run: pip install -r requirements.txt
 
       # --- 适配加密系统的修改点 6 ---
       - name: Start Session (Decrypt veiled-journeys)
