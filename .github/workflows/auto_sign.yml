@@ -1,4 +1,4 @@
-name: Auto-sign
+name: Auto-sign (Session-Based)
 
 on:
   schedule:
@@ -9,50 +9,42 @@ jobs:
   auto-sign:
     runs-on: ubuntu-latest
     steps:
-      # 步骤 1-3: 保持不变
       - uses: actions/checkout@v4
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
-      - name: Cache pip dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+      
       - name: Clone private repository (veiled-journeys)
         env:
           PAT: ${{ secrets.GITCODE_TOKEN }}
         run: |
           git clone https://Jyf0214:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
-      - name: Install global dependencies
-        run: |
-          # 全局只需要安装 cryptography
-          pip install cryptography
-          # 如果有其他必要全局包，在这里安装
-          pip install -r veiled-journeys/requirements.txt
+ 
+      - name: Cache pip dependencies
+        # 注意: key 现在可以只依赖于 veiled-journeys/requirements.txt
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/veiled-journeys/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       
-      # ========================= 核心修复 =========================
-      # 步骤 5: 创建并进入沙箱工作区
-      - name: Setup Sandbox Workspace
-        run: |
-          # 创建一个干净的工作区目录
-          mkdir -p Jyf0214_workspace/Jyf0214
-          
-          # 将启动器和加密仓库移动到工作区内
-          mv veiled-journeys/main.py Jyf0214_workspace/Jyf0214/
-          mv veiled-journeys/Jyf0214_encrypted Jyf0214_workspace/Jyf0214/
-          
-          echo "Workspace setup complete."
-
-      # 步骤 6: 在沙箱容器内执行所有任务
-      - name: Run all tasks inside the Veiled-Journeys container
-        # 直接在搭建好的工作区内运行
-        working-directory: ./Jyf0214_workspace/Jyf0214
+      # 步骤 5: 启动会话 (解密所有文件到硬盘)
+      - name: Start Session (Decrypt All Files)
+        working-directory: ./veiled-journeys
         env:
-          # 提供所有需要的 secrets
+          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
+        run: |
+          # 运行新 main.py 的 start 命令
+          python main.py start
+      
+      # 步骤 6: 安装依赖并执行业务逻辑 (在解密后的目录中)
+      - name: Install Dependencies & Run Business Logic
+        # 现在所有操作都在解密后的 Jyf0214 目录中进行
+        working-directory: ./veiled-journeys/Jyf0214
+        env:
+          # 所有 secrets 正常传递
           GitHub_Actions: true
           TOTKEN: ${{ secrets.TOKEN }}
           SUBJECT: ${{ secrets.SUBJECT }}
@@ -62,28 +54,44 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           PHONE: ${{ secrets.PHONE }}
           PASSWORD: ${{ secrets.PASSWORD }}
-          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Listing workspace contents:"
-          ls -R
+          # 先安装依赖
+          pip install -r ../requirements.txt 
           
-          # 使用 "here document" 将命令喂给 main.py
-          python main.py <<EOF
+          # 然后像本地开发一样，直接运行 python 命令
+          # 所有 import 和文件引用都会正常工作
           python skyland.py
           python smtp.py
           python bingapi.py
           python git.py
           python src/dailymessage.py
-          cd Skland
-          ls
-          if [ ! -f "./TOKEN.txt" ]; then
-            echo "Error: Token.txt does not exist."
-            exit 1
-          fi
-     
+
+      # 步骤 7: 执行部署任务 (同样在解密后的目录中)
+      - name: Prepare and Deploy Skland App
+        working-directory: ./veiled-journeys/Jyf0214/Skland
+        env:
+          # ... 部署需要的 secrets ...
+          HWAWAI_FC_ACCESS_KEY: ${{ secrets.HWAWAI_FC_ACCESS_KEY }} # 示例
+          HWAWAI_FC_SECRET_KEY: ${{ secrets.HWAWAI_FC_SECRET_KEY }} # 示例
+        run: |
+          # 这里是您之前坚持的、正确的 Shell 操作
+          echo "Checking for TOKEN.txt..."
+          if [ ! -f "./TOKEN.txt" ]; then exit 1; fi
+
+          echo "Packaging..."
           pip install --target=./ requests cryptography cffi
           find . -type d -name '*dist-info' -exec rm -rf {} +
           zip -r code.zip .
+          
+          # 直接运行解密后的 sync.py 来执行上传
+          echo "Deploying..."
           python sync.py
-          exit
+
+      # 步骤 8: 清理会话 (无论前面的步骤成功与否，都必须执行)
+      - name: Cleanup Session (Remove All Decrypted Files)
+        # `if: always()` 确保此步骤总是运行
+        if: always()
+        working-directory: ./veiled-journeys
+        run: |
+          # 运行新 main.py 的 cleanup 命令
+          python main.py cleanup
