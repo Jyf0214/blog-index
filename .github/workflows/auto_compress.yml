@@ -21,8 +21,8 @@ jobs:
       # --- 适配加密系统的修改点 1 ---
       - name: Clone veiled-journeys repository
         env:
-          PAT: ${{ secrets.GITCODE_TOKEN }} # 假设这是您的 GitHub PAT
-        run: git clone https://Jyf0214:${PAT}@github.com/Jyf0214/veiled-journeys.git
+          PAT: ${{ secrets.GITCODE_TOKEN }} 
+        run: git clone https://Jyf0214:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
   
       # --- 适配加密系统的修改点 3 ---
       - name: Install Python requirements
@@ -145,7 +145,7 @@ jobs:
       - name: Clone veiled-journeys repository
         env:
           PAT: ${{ secrets.GITCODE_TOKEN }}
-        run: git clone https://Jyf0214:${PAT}@github.com/Jyf0214/veiled-journeys.git
+        run: git clone https://Jyf0214:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
         
        # --- 适配加密系统的修改点 7 ---
       - name: Install Python requirements
