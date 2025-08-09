@@ -1,4 +1,4 @@
-name: Rclone-Unified Parallel Video Compression (Corrected Cache & Filename)
+name: Rclone-Unified Parallel Video Compression (Encrypted)
 
 on:
   workflow_dispatch:
@@ -8,63 +8,72 @@ env:
   WORKFLOW_RUN_ID: ${{ github.run_id }}
 
 jobs:
-  # 任务1：分割视频，并将数据存入两个独立的缓存，同时捕获原始文件名
+  # 任务1：分割视频（需要运行加密的下载脚本）
   split_and_cache:
     runs-on: ubuntu-latest
     outputs:
       matrix_payload: ${{ steps.split.outputs.matrix_array }}
-      # --- 修改点 1：将原始文件名作为此任务的输出 ---
       original_filename: ${{ steps.split.outputs.original_filename }}
     steps:
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      - name: Clone scripts repository
+      # --- 适配加密系统的修改点 1 ---
+      - name: Clone veiled-journeys repository
         env:
-          PAT: ${{ secrets.PAT }}
-        run: git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
-
+          PAT: ${{ secrets.GITCODE_TOKEN }} # 假设这是您的 GitHub PAT
+        run: git clone https://Jyf0214:${PAT}@github.com/Jyf0214/veiled-journeys.git
+  
+      # --- 适配加密系统的修改点 3 ---
       - name: Install Python requirements
-        run: pip install -r veiled-journeys/requirements.txt
+        # 从解密后的目录安装，路径为 ../requirements.txt 或绝对路径
+        working-directory: ./veiled-journeys
+        run: pip install -r ../requirements.txt
 
-      - name: Download Original Video
+      # --- 适配加密系统的修改点 2 ---
+      - name: Start Session (Decrypt veiled-journeys)
+        working-directory: ./veiled-journeys
+        env:
+          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
+        run: python main.py start
+    
+
+      - name: Download Original Video (Using Encrypted Script)
         run: |
           mkdir -p original_video
-          python veiled-journeys/webdav_download.py -a="MyVideos/" -b="./original_video/" -c=1
+          # 调用解密到硬盘后的脚本
+          python veiled-journeys/Jyf0214/webdav_download.py -a="MyVideos/" -b="./original_video/" -c=1
 
       - name: Split video, generate matrix, and get filename
         id: split
         run: |
           mkdir -p video_segments
           ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
-          # --- 修改点 2：从完整路径中提取文件名并设置为输出变量 ---
           ORIGINAL_FILENAME=$(basename "$ORIGINAL_FILE")
           echo "original_filename=${ORIGINAL_FILENAME}" >> $GITHUB_OUTPUT
-
           ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 60 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
           COUNT=$(ls -1 video_segments/*.mp4 | wc -l)
           echo "count=$COUNT" >> $GITHUB_OUTPUT
-          if [ "$COUNT" -gt 0 ]; then
-            SEQUENCE=$(seq 0 $(($COUNT - 1)) | tr '\n' ',' | sed 's/,$//')
-            JSON_ARRAY="[${SEQUENCE}]"
-          else
-            JSON_ARRAY="[]"
-          fi
+          JSON_ARRAY="[$(seq 0 $(($COUNT - 1)) | tr '\n' ',' | sed 's/,$//')]"
+          if [ "$COUNT" -eq 0 ]; then JSON_ARRAY="[]"; fi
           echo "matrix_array=${JSON_ARRAY}" >> $GITHUB_OUTPUT
 
-      - name: Save Original Video to Cache
+      - name: Save Caches (Original and Segments)
         uses: actions/cache/save@v4
         with:
-          path: original_video/
-          key: original-${{ env.WORKFLOW_RUN_ID }}
+          path: |
+            original_video/
+            video_segments/
+          key: media-${{ env.WORKFLOW_RUN_ID }}
 
-      - name: Save Segments to Cache
-        uses: actions/cache/save@v4
-        with:
-          path: video_segments/
-          key: segments-${{ env.WORKFLOW_RUN_ID }}
+      # --- 适配加密系统的修改点 4 (重要！) ---
+      - name: Cleanup Session (Remove Decrypted Files)
+        if: always() # 确保此步骤总是运行
+        working-directory: ./veiled-journeys
+        run: python main.py cleanup
 
-  # 任务2：使用Rclone上传压缩片段 (此任务无需修改)
+
+  # 任务2：并行压缩和上传 (此任务不涉及 Python 脚本，无需修改)
   compress_and_upload_to_b2:
     runs-on: ubuntu-latest
     needs: split_and_cache
@@ -76,15 +85,14 @@ jobs:
     steps:
       - name: Install Dependencies (ffmpeg, rclone)
         run: |
-          sudo apt-get update && sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg
           sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
       - name: Restore Uncompressed Segments from Cache
         uses: actions/cache/restore@v4
         with:
           path: video_segments/
-          key: segments-${{ env.WORKFLOW_RUN_ID }}
-          fail-on-cache-miss: true
+          key: media-${{ env.WORKFLOW_RUN_ID }}
 
       - name: Configure Rclone
         env:
@@ -92,107 +100,98 @@ jobs:
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
         run: |
           mkdir -p ~/.config/rclone
-          echo "[b2_remote]
-          type = b2
-          account = ${B2_KEY_ID}
-          key = ${B2_APPLICATION_KEY}" > ~/.config/rclone/rclone.conf
+          echo "[b2_remote]\ntype = b2\naccount = ${B2_KEY_ID}\nkey = ${B2_APPLICATION_KEY}" > ~/.config/rclone/rclone.conf
       
-      - name: Process One Segment
-        id: process
+      - name: Process and Upload One Segment
         run: |
           mkdir -p compressed_output
           FORMATTED_INDEX=$(printf "%03d" ${{ matrix.segment_index }})
           INPUT_FILE="video_segments/segment_${FORMATTED_INDEX}.mp4"
           OUTPUT_FILE="compressed_output/compressed_${FORMATTED_INDEX}.mp4"
-          ffmpeg -i "$INPUT_FILE" -c:v libx265 -preset veryslow -crf 18 -tag:v hvc1 -c:a copy "$OUTPUT_FILE"
-          echo "output_file=$OUTPUT_FILE" >> $GITHUB_OUTPUT
+          ffmpeg -y -i "$INPUT_FILE" -c:v libx265 -preset veryslow -crf 18 -tag:v hvc1 -c:a copy "$OUTPUT_FILE"
+          rclone copyto "$OUTPUT_FILE" "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed/$(basename $OUTPUT_FILE)"
 
-      - name: Upload Compressed Segment with Rclone
-        run: |
-          OUTPUT_FILE=${{ steps.process.outputs.output_file }}
-          BASENAME=$(basename "$OUTPUT_FILE")
-          rclone copyto "$OUTPUT_FILE" "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed/${BASENAME}"
-
-  # 任务3：从B2下载、合并并上传，使用正确的最终文件名
+  # 任务3：合并和上传 (需要运行加密的上传脚本)
   merge_from_b2_and_upload:
     runs-on: ubuntu-latest
     needs: [split_and_cache, compress_and_upload_to_b2]
     steps:
       - name: Install Dependencies (ffmpeg, rclone)
         run: |
-          sudo apt-get update && sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg
           sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
       - name: Restore Original Video from Cache
         uses: actions/cache/restore@v4
         with:
           path: original_video/
-          key: original-${{ env.WORKFLOW_RUN_ID }}
-          fail-on-cache-miss: true
+          key: media-${{ env.WORKFLOW_RUN_ID }}
 
-      - name: Configure Rclone for B2 (with Download URL)
+      - name: Configure Rclone for B2
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
-          B2_DOWNLOAD_URL: ${{ secrets.B2_DOWNLOAD_URL }}
+          B2_DOWNLOAD_URL: ${{ secrets.B2_DOWNLOAD_URL }} # download_url is optional but good for performance
         run: |
           mkdir -p ~/.config/rclone
-          echo "[b2_remote]
-          type = b2
-          account = ${B2_KEY_ID}
-          key = ${B2_APPLICATION_KEY}
-          download_url = ${B2_DOWNLOAD_URL}" > ~/.config/rclone/rclone.conf
+          echo "[b2_remote]\ntype = b2\naccount = ${B2_KEY_ID}\nkey = ${B2_APPLICATION_KEY}\ndownload_url = ${B2_DOWNLOAD_URL}" > ~/.config/rclone/rclone.conf
 
       - name: Download all compressed segments from B2
         run: |
           mkdir -p compressed_segments
           rclone copy "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed" ./compressed_segments
 
-      - name: Clone and setup upload scripts
+      # --- 适配加密系统的修改点 5 ---
+      - name: Clone veiled-journeys repository
         env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
-          pip install -r veiled-journeys/requirements.txt
-      
-      - name: Merge, Compare and Upload
+          PAT: ${{ secrets.GITCODE_TOKEN }}
+        run: git clone https://Jyf0214:${PAT}@github.com/Jyf0214/veiled-journeys.git
+        
+       # --- 适配加密系统的修改点 7 ---
+      - name: Install Python requirements
+        working-directory: ./veiled-journeys
+        run: pip install -r ../requirements.txt
+
+      # --- 适配加密系统的修改点 6 ---
+      - name: Start Session (Decrypt veiled-journeys)
+        working-directory: ./veiled-journeys
+        env:
+          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
+        run: python main.py start
+
+      - name: Merge, Compare and Select Final File
         id: merge_and_select
-        # --- 修改点 3：通过 env 将原始文件名传入此步骤 ---
         env:
           ORIGINAL_FILENAME: ${{ needs.split_and_cache.outputs.original_filename }}
         run: |
-          if ! find ./compressed_segments -mindepth 1 -type f -name "*.mp4" | read; then
-            echo "::error::No compressed segments were downloaded from B2."
-            exit 1
-          fi
-          
+          # ... 合并和比较的 Shell 逻辑保持不变 ...
           find ./compressed_segments -type f -name "*.mp4" | sort -V | while read -r f; do echo "file '$f'" >> file_list.txt; done
-          
-          # --- 修改点 4：使用传入的 ORIGINAL_FILENAME 作为合并后视频的文件名 ---
-          echo "Merging segments into final file: ${ORIGINAL_FILENAME}"
+          if [ ! -s file_list.txt ]; then echo "::error::No compressed segments found to merge."; exit 1; fi
           ffmpeg -f concat -safe 0 -i file_list.txt -c copy "${ORIGINAL_FILENAME}"
-          
           ORIGINAL_FILE=$(find ./original_video -type f -name "*.mp4")
-          # --- 修改点 5：将 MERGED_FILE 指向新生成的、具有正确名称的文件 ---
           MERGED_FILE="${ORIGINAL_FILENAME}"
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
           MERGED_SIZE=$(stat -c%s "$MERGED_FILE")
           FINAL_FILE_PATH="$ORIGINAL_FILE"
-          
-          # 比较逻辑保持不变，但现在比较的是正确命名的文件
           if [ -f "$MERGED_FILE" ] && [ "$MERGED_SIZE" -lt "$ORIGINAL_SIZE" ] && [ "$MERGED_SIZE" -gt 0 ]; then
             FINAL_FILE_PATH="$MERGED_FILE"
           fi
-          
           echo "final_file=${FINAL_FILE_PATH}" >> $GITHUB_OUTPUT
 
-      - name: Upload to GoFile
+      - name: Upload to GoFile (Using Encrypted Script)
         run: |
           FINAL_FILE_TO_UPLOAD=${{ steps.merge_and_select.outputs.final_file }}
           echo "Uploading ${FINAL_FILE_TO_UPLOAD}..."
-          python veiled-journeys/gofile_manager.py upload --file "$FINAL_FILE_TO_UPLOAD" --list-file "compressed_videos_list.txt" > /dev/null 2>&1
-  
-  # 任务4：清理B2 (此任务无需修改)
+          # 调用解密到硬盘后的脚本
+          python veiled-journeys/Jyf0214/gofile_manager.py upload --file "$FINAL_FILE_TO_UPLOAD"
+
+      # --- 适配加密系统的修改点 8 (重要！) ---
+      - name: Cleanup Session (Remove Decrypted Files)
+        if: always()
+        working-directory: ./veiled-journeys
+        run: python main.py cleanup
+
+  # 任务4：清理B2存储 (此任务不涉及 Python 脚本，无需修改)
   cleanup_b2:
     runs-on: ubuntu-latest
     needs: merge_from_b2_and_upload
@@ -200,20 +199,14 @@ jobs:
     steps:
       - name: Install Rclone
         run: sudo -v ; curl https://rclone.org/install.sh | sudo bash
-
       - name: Configure Rclone
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
         run: |
           mkdir -p ~/.config/rclone
-          echo "[b2_remote]
-          type = b2
-          account = ${B2_KEY_ID}
-          key = ${B2_APPLICATION_KEY}" > ~/.config/rclone/rclone.conf
-
+          echo "[b2_remote]\ntype = b2\naccount = ${B2_KEY_ID}\nkey = ${B2_APPLICATION_KEY}" > ~/.config/rclone/rclone.conf
       - name: Purge temporary directory from B2 with Rclone
         run: |
           echo "Purging remote directory: ${{ env.REMOTE_DIR }}"
           rclone purge "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}"
-          echo "Cleanup complete."
