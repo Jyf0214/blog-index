@@ -118,7 +118,7 @@ jobs:
           FORMATTED_INDEX=$(printf "%03d" ${{ matrix.segment_index }})
           INPUT_FILE="video_segments/segment_${FORMATTED_INDEX}.mp4"
           OUTPUT_FILE="compressed_output/compressed_${FORMATTED_INDEX}.mp4"
-          ffmpeg -y -i "$INPUT_FILE" -c:v libx265 -preset veryslow -crf 18 -tag:v hvc1 -c:a copy "$OUTPUT_FILE"
+          ffmpeg -y -i "$INPUT_FILE" -c:v libx265 -preset fast -crf 18 -tag:v hvc1 -c:a copy "$OUTPUT_FILE"
           BASENAME=$(basename "$OUTPUT_FILE")
           rclone copyto "$OUTPUT_FILE" "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed/${BASENAME}"
 
