@@ -1,4 +1,4 @@
-name: Rclone-Unified Parallel Video Compression (Encrypted & Corrected)
+name: Rclone-Unified Parallel Video Compression (Corrected & Final)
 
 on:
   workflow_dispatch:
@@ -42,7 +42,7 @@ jobs:
         id: split
         run: |
           mkdir -p video_segments
-          ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f -name "*.mp4" -print -quit)
+          ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f \( -name "*.mp4" -o -name "*.mkv" \) -print -quit)
           ORIGINAL_FILENAME=$(basename "$ORIGINAL_FILE")
           echo "original_filename=${ORIGINAL_FILENAME}" >> $GITHUB_OUTPUT
           ffmpeg -i "$ORIGINAL_FILE" -c copy -f segment -segment_time 60 -reset_timestamps 1 "video_segments/segment_%03d.mp4"
@@ -56,14 +56,13 @@ jobs:
           fi
           echo "matrix_array=${JSON_ARRAY}" >> $GITHUB_OUTPUT
 
-      # --- 缓存修正点 1：为原始视频创建独立缓存 ---
+      # --- 缓存逻辑已恢复为正确的分离式缓存 ---
       - name: Save Original Video to Cache
         uses: actions/cache/save@v4
         with:
           path: original_video/
           key: original-${{ env.WORKFLOW_RUN_ID }}
 
-      # --- 缓存修正点 2：为视频片段创建独立缓存 ---
       - name: Save Segments to Cache
         uses: actions/cache/save@v4
         with:
@@ -91,7 +90,6 @@ jobs:
           sudo apt-get install -y ffmpeg
           sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
-      # --- 缓存修正点 3：只恢复视频片段的缓存，并确保其存在 ---
       - name: Restore Uncompressed Segments from Cache
         uses: actions/cache/restore@v4
         with:
@@ -99,14 +97,21 @@ jobs:
           key: segments-${{ env.WORKFLOW_RUN_ID }}
           fail-on-cache-miss: true
 
+      # --- Rclone配置修正点 1：使用稳定且正确的heredoc格式生成配置文件 ---
       - name: Configure Rclone
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
         run: |
           mkdir -p ~/.config/rclone
-          echo "[b2_remote]\ntype = b2\naccount = ${B2_KEY_ID}\nkey = ${B2_APPLICATION_KEY}" > ~/.config/rclone/rclone.conf
+          cat << EOF > ~/.config/rclone/rclone.conf
+          [b2_remote]
+          type = b2
+          account = ${B2_KEY_ID}
+          key = ${B2_APPLICATION_KEY}
+          EOF
       
+      # --- Rclone路径修正点 2：修正 Process 和 Upload 步骤中的 rclone copyto 命令 ---
       - name: Process and Upload One Segment
         run: |
           mkdir -p compressed_output
@@ -114,7 +119,8 @@ jobs:
           INPUT_FILE="video_segments/segment_${FORMATTED_INDEX}.mp4"
           OUTPUT_FILE="compressed_output/compressed_${FORMATTED_INDEX}.mp4"
           ffmpeg -y -i "$INPUT_FILE" -c:v libx265 -preset veryslow -crf 18 -tag:v hvc1 -c:a copy "$OUTPUT_FILE"
-          rclone copyto "$OUTPUT_FILE" "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed/$(basename "$OUTPUT_FILE")"
+          BASENAME=$(basename "$OUTPUT_FILE")
+          rclone copyto "$OUTPUT_FILE" "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}/compressed/${BASENAME}"
 
   # 任务3：合并和上传
   merge_from_b2_and_upload:
@@ -127,7 +133,6 @@ jobs:
           sudo apt-get install -y ffmpeg
           sudo -v ; curl https://rclone.org/install.sh | sudo bash
 
-      # --- 缓存修正点 4：只恢复原始视频的缓存，并确保其存在 ---
       - name: Restore Original Video from Cache
         uses: actions/cache/restore@v4
         with:
@@ -135,6 +140,7 @@ jobs:
           key: original-${{ env.WORKFLOW_RUN_ID }}
           fail-on-cache-miss: true
 
+      # --- Rclone配置修正点 3：确保所有任务都使用稳定可靠的heredoc格式 ---
       - name: Configure Rclone for B2
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
@@ -142,7 +148,13 @@ jobs:
           B2_DOWNLOAD_URL: ${{ secrets.B2_DOWNLOAD_URL }}
         run: |
           mkdir -p ~/.config/rclone
-          echo "[b2_remote]\ntype = b2\naccount = ${B2_KEY_ID}\nkey = ${B2_APPLICATION_KEY}\ndownload_url = ${B2_DOWNLOAD_URL}" > ~/.config/rclone/rclone.conf
+          cat << EOF > ~/.config/rclone/rclone.conf
+          [b2_remote]
+          type = b2
+          account = ${B2_KEY_ID}
+          key = ${B2_APPLICATION_KEY}
+          download_url = ${B2_DOWNLOAD_URL}
+          EOF
 
       - name: Download all compressed segments from B2
         run: |
@@ -167,7 +179,7 @@ jobs:
           find ./compressed_segments -type f -name "*.mp4" | sort -V | while read -r f; do echo "file '$f'" >> file_list.txt; done
           if [ ! -s file_list.txt ]; then echo "::error::No compressed segments found to merge."; exit 1; fi
           ffmpeg -f concat -safe 0 -i file_list.txt -c copy "${ORIGINAL_FILENAME}"
-          ORIGINAL_FILE=$(find ./original_video -type f -name "*.mp4")
+          ORIGINAL_FILE=$(find ./original_video -maxdepth 1 -type f \( -name "*.mp4" -o -name "*.mkv" \) -print -quit)
           MERGED_FILE="${ORIGINAL_FILENAME}"
           ORIGINAL_SIZE=$(stat -c%s "$ORIGINAL_FILE")
           MERGED_SIZE=$(stat -c%s "$MERGED_FILE")
@@ -196,14 +208,20 @@ jobs:
     steps:
       - name: Install Rclone
         run: sudo -v ; curl https://rclone.org/install.sh | sudo bash
+      # --- Rclone配置修正点 4：确保所有任务都使用稳定可靠的heredoc格式 ---
       - name: Configure Rclone
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
         run: |
           mkdir -p ~/.config/rclone
-          echo "[b2_remote]\ntype = b2\naccount = ${B2_KEY_ID}\nkey = ${B2_APPLICATION_KEY}" > ~/.config/rclone/rclone.conf
+          cat << EOF > ~/.config/rclone/rclone.conf
+          [b2_remote]
+          type = b2
+          account = ${B2_KEY_ID}
+          key = ${B2_APPLICATION_KEY}
+          EOF
       - name: Purge temporary directory from B2 with Rclone
         run: |
           echo "Purging remote directory: ${{ env.REMOTE_DIR }}"
-          rclone purge "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}"```
+          rclone purge "b2_remote:${{ secrets.B2_BUCKET_NAME }}/${{ env.REMOTE_DIR }}"
