@@ -199,12 +199,45 @@ jobs:
         working-directory: ./veiled-journeys
         run: python main.py cleanup
 
-  # 任务4：清理B2存储
-  cleanup_b2:
+  cleanup_github_cache:
     runs-on: ubuntu-latest
-    needs: merge_from_b2_and_upload
-    if: always()
+    needs: [merge_from_b2_and_upload] 
+    if: always()                                    # 无论前面成功失败都执行
     steps:
+      - name: Delete GitHub Actions cache entries
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const keys = [
+              `original-${process.env.WORKFLOW_RUN_ID}`,
+              `segments-${process.env.WORKFLOW_RUN_ID}`
+            ];
+            for (const k of keys) {
+              try {
+                // 先列出该 key 对应的缓存 id
+                const { data } = await github.rest.actions.getActionsCacheList({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  key: k
+                });
+                if (data.actions_caches.length === 0) {
+                  console.log(`No cache found for key ${k}`);
+                  continue;
+                }
+                // 逐个删除
+                for (const c of data.actions_caches) {
+                  await github.rest.actions.deleteActionsCacheById({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    cache_id: c.id
+                  });
+                  console.log(`Deleted cache id ${c.id} (key ${k})`);
+                }
+              } catch (e) {
+                console.warn(`Failed to delete cache key ${k}:`, e.message);
+              }
+            }
+
       - name: Install Rclone
         run: sudo -v ; curl https://rclone.org/install.sh | sudo bash
       - name: Configure Rclone
