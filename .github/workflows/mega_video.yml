@@ -59,6 +59,7 @@ jobs:
           KOOFR_WEBDAV_USERNAME: ${{ secrets.KOOFR_WEBDAV_USERNAME }}
           KOOFR_WEBDAV_PASSWORD: ${{ secrets.KOOFR_WEBDAV_PASSWORD }}
         run: |
+          cd veiled-journeys/Jyf0214
           python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/aibishoujo/part_1
           python webdav_sync.py cloud-to-local ./host_videos /teracloud/videos/wallpaper
           bash 隐写术加密.sh
