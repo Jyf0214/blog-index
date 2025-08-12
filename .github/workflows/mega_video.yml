@@ -1,4 +1,4 @@
-name: Rclone-Unified Parallel Video Compression (Corrected & Final)
+name: Rclone-Unified Parallel Video lanzoui
 
 on:
   workflow_dispatch:
@@ -8,7 +8,6 @@ env:
   WORKFLOW_RUN_ID: ${{ github.run_id }}
 
 jobs:
-  # 任务1：分割视频，解密脚本，并分别缓存产物
   split_and_cache:
     runs-on: ubuntu-latest
     outputs:
@@ -34,11 +33,37 @@ jobs:
         run: python main.py start
 
       - name: Download Original Video (Using Encrypted Script)
+        env:
+          # Sushang WebDAV
+          SUSHANG_WEBDAV_USERNAME: ${{ secrets.SUSHANG_WEBDAV_USERNAME }}
+          SUSHANG_WEBDAV_PASSWORD: ${{ secrets.SUSHANG_WEBDAV_PASSWORD }}
+
+          # GoFile API
+          GOFILE_API_TOKEN: ${{ secrets.GOFILE_API_TOKEN }}
+
+          # Jike TeraCloud WebDAV
+          JIKE_WEBDAV_USERNAME: ${{ secrets.JIKE_WEBDAV_USERNAME }}
+          JIKE_WEBDAV_PASSWORD: ${{ secrets.JIKE_WEBDAV_PASSWORD }}
+
+          # Upstash Redis
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+
+          # Yandex WebDAV
+          YANDEX_WEBDAV_USERNAME: ${{ secrets.YANDEX_WEBDAV_USERNAME }}
+          YANDEX_WEBDAV_PASSWORD: ${{ secrets.YANDEX_WEBDAV_PASSWORD }}
+
+          # Koofr WebDAV
+          # 注意：即使 Koofr 的 URL 不是秘密，但将其作为环境变量传入可以增加灵活性
+          KOOFR_WEBDAV_BASE_URL: ${{ secrets.KOOFR_WEBDAV_BASE_URL }}
+          KOOFR_WEBDAV_USERNAME: ${{ secrets.KOOFR_WEBDAV_USERNAME }}
+          KOOFR_WEBDAV_PASSWORD: ${{ secrets.KOOFR_WEBDAV_PASSWORD }}
         run: |
           python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/aibishoujo/part_1
           python webdav_sync.py cloud-to-local ./host_videos /teracloud/videos/wallpaper
           bash 隐写术加密.sh
           python webdav_sync.py local-to-cloud ./output_parts /lanzoui/视频壁纸
+
       - name: Cleanup Session (Remove Decrypted Files)
         if: always()
         working-directory: ./veiled-journeys
