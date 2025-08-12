@@ -1,89 +1,46 @@
-name: Optimized Video Processor
+name: Rclone-Unified Parallel Video Compression (Corrected & Final)
 
 on:
   workflow_dispatch:
 
+env:
+  REMOTE_DIR: ${{ github.run_id }}
+  WORKFLOW_RUN_ID: ${{ github.run_id }}
+
 jobs:
-  video-processing:
+  # 任务1：分割视频，解密脚本，并分别缓存产物
+  split_and_cache:
     runs-on: ubuntu-latest
-
+    outputs:
+      matrix_payload: ${{ steps.split.outputs.matrix_array }}
+      original_filename: ${{ steps.split.outputs.original_filename }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-
-      - name: Setup Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg mediainfo htop 
-          sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
-          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
-          sudo apt-get install -y ttf-mscorefonts-installer
-          sudo fc-cache -fv
-          pip install requests>=2.28.0 cryptography>=39.0.0 resend>=0.1.0 huaweicloudsdkfunctiongraph>=3.0.0 huaweicloudsdkcore>=3.0.0 pillow webdavclient3
-
-      - name: Clone Repository
+      - name: Clone veiled-journeys repository
         env:
-          PAT: ${{ secrets.PAT }}
+          PAT: ${{ secrets.GITCODE_TOKEN }} 
+        run: git clone https://Jyf0214:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
+
+      - name: Install Python requirements
+        working-directory: ./veiled-journeys
+        run: pip install -r requirements.txt
+
+      - name: Start Session (Decrypt veiled-journeys)
+        working-directory: ./veiled-journeys
+        env:
+          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
+        run: python main.py start
+
+      - name: Download Original Video (Using Encrypted Script)
         run: |
-          git clone https://x-access-token:${PAT}@github.com/Jyf0214/veiled-journeys.git
+          python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/aibishoujo/part_1
+          python webdav_sync.py cloud-to-local ./host_videos /teracloud/videos/wallpaper
+          bash 隐写术加密.sh
+          python webdav_sync.py local-to-cloud ./output_parts /lanzoui/视频壁纸
+      - name: Cleanup Session (Remove Decrypted Files)
+        if: always()
+        working-directory: ./veiled-journeys
+        run: python main.py cleanup
 
-      - name: Create Processor Script
-        run: |
-          cat > veiled-journeys/video_processor.sh <<'EOL'
-          #!/bin/bash
-
-          find_video() {
-              find . -maxdepth 1 -type f \( -name "*.mp4" -o -name "*.avi" -o -name "*.mkv" \) -print -quit
-          }
-
-          find_srt() {
-              find . -maxdepth 1 -type f -name "*.srt" -print -quit
-          }
-
-          CURRENT_DIR=$(pwd)
-          echo "当前目录: $CURRENT_DIR"
-
-          VIDEO_FILE=$(find_video)
-          SRT_FILE=$(find_srt)
-          echo "找到视频文件: $VIDEO_FILE"
-          echo "找到字幕文件: $SRT_FILE"
-
-          if [ -z "$VIDEO_FILE" ] || [ -z "$SRT_FILE" ]; then
-              echo "未找到视频文件或 SRT 字幕文件"
-              exit 1
-          fi
-
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          OUTPUT_FILE="$CURRENT_DIR/output_${TIMESTAMP}.mp4"
-
-          # 修改后的 H.265 编码参数
-          FFMPEG_COMMAND="ffmpeg -i \"$VIDEO_FILE\" -vf \"subtitles='$SRT_FILE':force_style='FontName=Microsoft YaHei,Noto Sans CJK SC,Fallback Fonts,FontSize=24,PrimaryColour=&H00FFFFFF,BorderStyle=1,OutlineColour=&H00000000,Shadow=0'\" -c:v libx265 -preset medium -tag:v hvc1 -c:a aac -b:a 128k -movflags faststart \"$OUTPUT_FILE\""
-
-          echo "Running FFmpeg command: $FFMPEG_COMMAND"
-          eval "$FFMPEG_COMMAND"
-
-          if [ $? -eq 0 ]; then
-              echo "✅ 处理完成 | 输出文件: $OUTPUT_FILE"
-          else
-              echo "FFmpeg 执行出错！"
-              exit 1
-          fi
-          EOL
-
-          chmod +x veiled-journeys/video_processor.sh
-          cd veiled-journeys
-          python app.py -a=My%20videos/ -b="." -c=2
-
-      - name: Process Video
-        run: |
-          cd veiled-journeys
-          ./video_processor.sh 
-
-      - name: Upload Results
-        run: |
-          cd veiled-journeys
-          python koofr_upload.py
