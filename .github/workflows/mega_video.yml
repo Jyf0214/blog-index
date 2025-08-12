@@ -62,7 +62,7 @@ jobs:
           cd veiled-journeys/Jyf0214
           python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/aibishoujo/part_1
           python webdav_sync.py cloud-to-local ./host_videos /teracloud/videos/wallpaper
-          bash 隐写术加密.sh
+          python do_stego.py
           python webdav_sync.py local-to-cloud ./output_parts /lanzoui/视频壁纸
 
       - name: Cleanup Session (Remove Decrypted Files)
