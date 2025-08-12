@@ -60,10 +60,12 @@ jobs:
           KOOFR_WEBDAV_PASSWORD: ${{ secrets.KOOFR_WEBDAV_PASSWORD }}
         run: |
           cd veiled-journeys/Jyf0214
+          python webdav_sync.py cloud-to-local ./config /lanzoui/config
           python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/aibishoujo/part_1
           python webdav_sync.py cloud-to-local ./host_videos /teracloud/videos/wallpaper
           python do_stego.py
           python webdav_sync.py local-to-cloud ./output_parts /lanzoui/视频壁纸
+          python webdav_sync.py local-to-cloud ./config /lanzoui/config
 
       - name: Cleanup Session (Remove Decrypted Files)
         if: always()
