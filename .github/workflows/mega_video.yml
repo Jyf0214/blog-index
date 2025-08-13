@@ -70,7 +70,11 @@ jobs:
               echo "❌ No more files to process."
               exit 1
             fi
-            python do_stego.py
+            if ! python do_stego.py; then
+              echo "❌ Error in do_stego.py, uploading compressed file back."
+              python webdav_sync.py local-to-cloud ./files /teracloud/kemono_uploads/aibishoujo/part_1
+              exit 1
+            fi
             python webdav_sync.py local-to-cloud ./output_parts /Bacloud1/视频壁纸
             python webdav_sync.py local-to-cloud ./config /Bacloud1/config
           done
