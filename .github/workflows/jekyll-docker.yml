@@ -61,15 +61,6 @@ jobs:
           git config --global user.name "Jyf0214"
           git config --global user.email "actions@users.noreply.github.com"
 
-      - name: Sync to GitLab (极狐香港站)
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.hk/${{ steps.repo-info.outputs.owner }}/${{ steps.repo-info.outputs.repo }}.git"
-          git push --all --force gitlab
-          git push --tags --force gitlab
-          echo "✅ Synced to GitLab (gitlab.hk)"
-
       - name: Sync to GitCode
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
