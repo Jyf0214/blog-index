@@ -59,15 +59,23 @@ jobs:
           KOOFR_WEBDAV_PASSWORD: ${{ secrets.KOOFR_WEBDAV_PASSWORD }}
         run: |
           cd veiled-journeys/Jyf0214
+          mkdir -p ./config ./files ./host_videos ./output_parts
           python webdav_sync.py cloud-to-local ./config /Bacloud1/config
-          python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/aibishoujo/part_1
           python webdav_sync.py cloud-to-local ./host_videos /teracloud/videos/wallpaper
-          python do_stego.py
-          python webdav_sync.py local-to-cloud ./output_parts /Bacloud1/视频壁纸
-          python webdav_sync.py local-to-cloud ./config /Bacloud1/config
+          while true; do
+            rm -rf ./files/*
+            rm -rf ./output_parts/*
+            python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/aibishoujo/part_1 --max-files 1
+            if [ -z "$(ls -A ./files)" ]; then
+              echo "❌ No more files to process."
+              exit 1
+            fi
+            python do_stego.py
+            python webdav_sync.py local-to-cloud ./output_parts /Bacloud1/视频壁纸
+            python webdav_sync.py local-to-cloud ./config /Bacloud1/config
+          done
 
       - name: Cleanup Session (Remove Decrypted Files)
         if: always()
         working-directory: ./veiled-journeys
         run: python main.py cleanup
-
