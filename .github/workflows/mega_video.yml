@@ -65,7 +65,7 @@ jobs:
           while true; do
             rm -rf ./files/*
             rm -rf ./output_parts/*
-            python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/aibishoujo/part_1 --max-files 1
+            python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/aibishoujo/part_1 --max-files 1 --delete-source
             if [ -z "$(ls -A ./files)" ]; then
               echo "❌ No more files to process."
               exit 1
