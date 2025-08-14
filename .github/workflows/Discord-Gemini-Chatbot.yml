@@ -52,25 +52,7 @@ jobs:
             pip install -r veiled-journeys/Discord-Gemini-Chatbot/requirements.txt
           fi
 
-# ---------- 2. 安装系统依赖 ----------
-      - name: Install system packages
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y curl 
-          
-      # ---------- 6. 下载 NSFW 识别模型 (如果需要) ----------
-      # 注意: saucenao_classifier.py 不需要此模型, 但为完整性保留
-      - name: Download tagger model
-        run: |
-          mkdir -p veiled-journeys/tagger_model
-          wget -O veiled-journeys/tagger_model/model.onnx https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/model.onnx
-          # 注意: 完整的 NSFW 检测还需要 selected_tags.csv 文件
-
-      
-    
-   
-
-
+        
 # ---------- 7. 启动 Discord Bot (后台运行) ----------
       - name: Start Discord bot
         env:
