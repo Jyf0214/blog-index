@@ -33,13 +33,11 @@ jobs:
           pip install --upgrade pip
           pip install numpy onnxruntime pandas pillow requests pyyaml 
 
-      - name: Start Session (Decrypt veiled-journeys)
-        working-directory: veiled-journeys/
+      - name: Clone veiled-journeys repository
         env:
-          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
-        run: python main.py start
+          PAT: ${{ secrets.GITCODE_TOKEN }} 
+        run: git clone https://Jyf0214:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
 
-      # ---------- 5. 安装项目特定依赖 ----------
       - name: Install project requirements
         run: |
           # 检查并安装 veiled-journeys 的依赖 (如果存在)
@@ -51,6 +49,11 @@ jobs:
             pip install -r veiled-journeys/Jyf0214/Discord-Gemini-Chatbot/requirements.txt
           fi
 
+      - name: Start Session (Decrypt veiled-journeys)
+        working-directory: veiled-journeys/
+        env:
+          Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
+        run: python main.py start
         
 # ---------- 7. 启动 Discord Bot (后台运行) ----------
       - name: Start Discord bot
