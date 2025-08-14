@@ -31,14 +31,7 @@ jobs:
       - name: Install Python packages
         run: |
           pip install --upgrade pip
-          pip install numpy onnxruntime pandas pillow requests pyyaml # 确保 pyyaml 已安装
-
-      # ---------- 4. 拉取包含分类脚本的私有仓库 ----------
-      - name: Clone private repository
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          git clone https://x-access-token:${PAT}@gitcode.com/Jyf0214/veiled-journeys.git
+          pip install numpy onnxruntime pandas pillow requests pyyaml 
 
       - name: Start Session (Decrypt veiled-journeys)
         working-directory: ./veiled-journeys
