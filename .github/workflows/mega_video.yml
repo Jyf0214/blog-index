@@ -75,7 +75,7 @@ jobs:
               python webdav_sync.py local-to-cloud ./files /teracloud/kemono_uploads/aibishoujo/part_1
               exit 1
             fi
-            python webdav_sync.py local-to-cloud ./output_parts /teracloud/视频壁纸/aibishoujo
+            python webdav_sync.py local-to-cloud ./output_parts /lanzoui/视频壁纸/aibishoujo
             python webdav_sync.py local-to-cloud ./config /Bacloud1/config
           done
 
