@@ -63,9 +63,31 @@ jobs:
           echo "Discord Bot 已在后台启动。"
 
 
-  # ---------- 8. 运行 SauceNAO 图片分类脚本 ----------
       - name: Run SauceNAO Classifier
-        # --- 核心改动: 将用户输入设置为环境变量 ---
+        env:
+          # Sushang WebDAV
+          SUSHANG_WEBDAV_USERNAME: ${{ secrets.SUSHANG_WEBDAV_USERNAME }}
+          SUSHANG_WEBDAV_PASSWORD: ${{ secrets.SUSHANG_WEBDAV_PASSWORD }}
+
+          # GoFile API
+          GOFILE_API_TOKEN: ${{ secrets.GOFILE_API_TOKEN }}
+
+          # Jike TeraCloud WebDAV
+          JIKE_WEBDAV_USERNAME: ${{ secrets.JIKE_WEBDAV_USERNAME }}
+          JIKE_WEBDAV_PASSWORD: ${{ secrets.JIKE_WEBDAV_PASSWORD }}
+
+          # Upstash Redis
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+
+          # Yandex WebDAV
+          YANDEX_WEBDAV_USERNAME: ${{ secrets.YANDEX_WEBDAV_USERNAME }}
+          YANDEX_WEBDAV_PASSWORD: ${{ secrets.YANDEX_WEBDAV_PASSWORD }}
+
+          # Koofr WebDAV
+          KOOFR_WEBDAV_BASE_URL: ${{ secrets.KOOFR_WEBDAV_BASE_URL }}
+          KOOFR_WEBDAV_USERNAME: ${{ secrets.KOOFR_WEBDAV_USERNAME }}
+          KOOFR_WEBDAV_PASSWORD: ${{ secrets.KOOFR_WEBDAV_PASSWORD }}
         run: |
           cd veiled-journeys/Jyf0214
           python process_images.py
