@@ -65,17 +65,17 @@ jobs:
           while true; do
             rm -rf ./files/*
             rm -rf ./output_parts/*
-            python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/VVAIfu-Life/part_1 --max-files 1 --delete-source
+            python webdav_sync.py cloud-to-local ./files /teracloud/kemono_uploads/aibishoujo/part_1 --max-files 1 --delete-source
             if [ -z "$(ls -A ./files)" ]; then
               echo "❌ No more files to process."
               exit 1
             fi
             if ! python do_stego.py; then
               echo "❌ Error in do_stego.py, uploading compressed file back."
-              python webdav_sync.py local-to-cloud ./files /teracloud/kemono_uploads/VVAIfu-Life/part_1
+              python webdav_sync.py local-to-cloud ./files /teracloud/kemono_uploads/aibishoujo/part_1
               exit 1
             fi
-            python webdav_sync.py local-to-cloud ./output_parts /lanzoui/视频壁纸/VVAIfu-Life
+            python webdav_sync.py local-to-cloud ./output_parts /lanzoui/视频壁纸/aibishoujo
             python webdav_sync.py local-to-cloud ./config /Bacloud1/config
           done
 
