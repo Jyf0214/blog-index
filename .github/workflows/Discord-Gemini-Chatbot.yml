@@ -100,3 +100,8 @@ jobs:
           sleep $((5*3600 + 50*60))
           pkill -f bot.py
           echo "Discord Bot 已停止。"
+
+      - name: Cleanup Session (Remove Decrypted Files)
+        if: always()
+        working-directory: ./veiled-journeys
+        run: python main.py cleanup
