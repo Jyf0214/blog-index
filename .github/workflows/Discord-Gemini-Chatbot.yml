@@ -34,7 +34,7 @@ jobs:
           pip install numpy onnxruntime pandas pillow requests pyyaml 
 
       - name: Start Session (Decrypt veiled-journeys)
-        working-directory: ./veiled-journeys
+        working-directory: veiled-journeys/
         env:
           Jyf0214_PASSWORD: ${{ secrets.Jyf0214_PASSWORD }}
         run: python main.py start
