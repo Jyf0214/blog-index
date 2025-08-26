@@ -45,6 +45,30 @@ jobs:
         working-directory: ./veiled-journeys/Jyf0214
         env:
           # 所有 secrets 正常传递
+          # Sushang WebDAV
+          SUSHANG_WEBDAV_USERNAME: ${{ secrets.SUSHANG_WEBDAV_USERNAME }}
+          SUSHANG_WEBDAV_PASSWORD: ${{ secrets.SUSHANG_WEBDAV_PASSWORD }}
+
+          # GoFile API
+          GOFILE_API_TOKEN: ${{ secrets.GOFILE_API_TOKEN }}
+
+          # Jike TeraCloud WebDAV
+          JIKE_WEBDAV_USERNAME: ${{ secrets.JIKE_WEBDAV_USERNAME }}
+          JIKE_WEBDAV_PASSWORD: ${{ secrets.JIKE_WEBDAV_PASSWORD }}
+
+          # Upstash Redis
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+
+          # Yandex WebDAV
+          YANDEX_WEBDAV_USERNAME: ${{ secrets.YANDEX_WEBDAV_USERNAME }}
+          YANDEX_WEBDAV_PASSWORD: ${{ secrets.YANDEX_WEBDAV_PASSWORD }}
+
+          # Koofr WebDAV
+          # 注意：即使 Koofr 的 URL 不是秘密，但将其作为环境变量传入可以增加灵活性
+          KOOFR_WEBDAV_BASE_URL: ${{ secrets.KOOFR_WEBDAV_BASE_URL }}
+          KOOFR_WEBDAV_USERNAME: ${{ secrets.KOOFR_WEBDAV_USERNAME }}
+          KOOFR_WEBDAV_PASSWORD: ${{ secrets.KOOFR_WEBDAV_PASSWORD }}
           GitHub_Actions: true
           TOTKEN: ${{ secrets.TOKEN }}
           SUBJECT: ${{ secrets.SUBJECT }}
