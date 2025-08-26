@@ -65,6 +65,7 @@ jobs:
           python bingapi.py
           python git.py
           python src/dailymessage.py
+          python review_images.py
 
       # 步骤 7: 执行部署任务 (同样在解密后的目录中)
       - name: Prepare and Deploy Skland App
