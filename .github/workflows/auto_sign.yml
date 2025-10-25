@@ -87,7 +87,7 @@ jobs:
           python skyland.py
           python smtp.py
           python bingapi.py
-          python git.py
+          python git.py || true
           python src/dailymessage.py
           python review_images.py
 
