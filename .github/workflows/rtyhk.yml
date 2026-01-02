@@ -1,0 +1,73 @@
+name: Manual LobeChat Deploy
+
+on:
+  # 只能被手动启动
+  workflow_dispatch:
+    inputs:
+      commit_hash:
+        description: 'Commit Hash to deploy (Git SHA)'
+        required: true
+        default: 'HEAD'
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 克隆代码 & 切换分支
+      - name: Clone LobeChat Repository
+        uses: actions/checkout@v4
+        with:
+          repository: lobehub/lobe-chat
+          ref: main # 一开始切换到 main
+          fetch-depth: 0 # 获取完整历史以便切换到指定 hash
+
+      # 2. 切换到指定的 Commit Hash
+      - name: Checkout Specific Commit
+        if: inputs.commit_hash != 'HEAD'
+        run: git checkout ${{ inputs.commit_hash }}
+
+      # 3. 安装 Bun
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      # 4. 安装 Vercel CLI
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      # 5. 安装项目依赖
+      # LobeChat 需要依赖才能构建，虽然要求中没细说，但这是 build 的前提
+      - name: Install Project Dependencies
+        run: bun install
+
+      # 6. 从远程拉取环境变量
+      - name: Pull Vercel Environment Variables
+        run: vercel env pull .env.local --yes --token=${{ secrets.VERCEL_TOKEN }}
+
+      # 7. 本地构建 (使用 sudo 和 强制无缓存变量)
+      # 注意：使用了 sudo，需要使用 -E 参数保留环境变量，或者显式传递 Token，
+      # 否则 sudo 环境下可能会丢失 Vercel 的鉴权信息。
+      - name: Build Project (Local with Sudo)
+        run: |
+          sudo VERCEL_FORCE_NO_BUILD_CACHE=1 \
+               VERCEL_ORG_ID=${{ secrets.VERCEL_ORG_ID }} \
+               VERCEL_PROJECT_ID=${{ secrets.VERCEL_PROJECT_ID }} \
+               VERCEL_TOKEN=${{ secrets.VERCEL_TOKEN }} \
+               vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      # 8. 推入远程部署
+      # 由于上一步用了 sudo，构建产物 (.vercel/output) 可能属于 root 用户。
+      # 这里部署时也使用 sudo 以确保有权限读取构建产物，或者你可以先 chown 回来。
+      # 这里为了流畅性继续使用 sudo 进行部署操作。
+      - name: Deploy to Vercel
+        run: |
+          sudo VERCEL_ORG_ID=${{ secrets.VERCEL_ORG_ID }} \
+               VERCEL_PROJECT_ID=${{ secrets.VERCEL_PROJECT_ID }} \
+               VERCEL_TOKEN=${{ secrets.VERCEL_TOKEN }} \
+               vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
