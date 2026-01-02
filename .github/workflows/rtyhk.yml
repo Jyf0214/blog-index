@@ -17,7 +17,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1. 克隆代码
       - name: Clone LobeChat Repository
         uses: actions/checkout@v4
         with:
@@ -25,45 +24,51 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      # 2. 切换到指定 Commit
       - name: Checkout Specific Commit
         if: inputs.commit_hash != 'HEAD'
         run: git checkout ${{ inputs.commit_hash }}
 
-      # ============ 新增步骤：设置 Node.js 22 ============
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      # 3. 安装 Bun
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      # 4. 修复 Sudo 找不到 Bun 的问题
-      - name: Expose Bun to Root
-        run: |
-          BUN_PATH=$(which bun)
-          echo "Bun found at: $BUN_PATH"
-          sudo ln -s "$BUN_PATH" /usr/local/bin/bun
-
-      # 5. 安装 Vercel CLI (将使用 Node 22 环境安装)
       - name: Install Vercel CLI
         run: npm install -g vercel
 
-      # 6. 安装项目依赖
+      # ============ 关键修复步骤 ============
+      # 将 Node, Bun, Vercel 全部链接到系统目录
+      # 这样 sudo 既能找到 vercel 命令，也能用正确的 node 版本运行它
+      - name: Expose Tools to Root
+        run: |
+          # 1. 链接 Node.js (使用 -sf 强制覆盖系统可能自带的旧版链接)
+          NODE_PATH=$(which node)
+          echo "Linking Node from: $NODE_PATH"
+          sudo ln -sf "$NODE_PATH" /usr/local/bin/node
+
+          # 2. 链接 Bun
+          BUN_PATH=$(which bun)
+          echo "Linking Bun from: $BUN_PATH"
+          sudo ln -sf "$BUN_PATH" /usr/local/bin/bun
+
+          # 3. 链接 Vercel
+          VERCEL_PATH=$(which vercel)
+          echo "Linking Vercel from: $VERCEL_PATH"
+          sudo ln -sf "$VERCEL_PATH" /usr/local/bin/vercel
+
       - name: Install Project Dependencies
         run: bun install
 
-      # 7. 拉取 Vercel 项目配置
       - name: Link Project & Pull Settings
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
-      # 8. 本地构建 (Node 22 + Bun 环境)
-      # 包含忽略 ESLint 和 TypeScript 错误的变量
       - name: Build Project (Local with Sudo)
+        # 现在 sudo 可以找到 vercel 和 node 了
         run: |
           sudo NEXT_IGNORE_ESLINT_BUILD_ERRORS=true \
                NEXT_IGNORE_TYPE_CHECK_BUILD_ERRORS=true \
@@ -73,7 +78,6 @@ jobs:
                VERCEL_TOKEN=${{ secrets.VERCEL_TOKEN }} \
                vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
-      # 9. 推入远程部署
       - name: Deploy to Vercel
         run: |
           sudo VERCEL_ORG_ID=${{ secrets.VERCEL_ORG_ID }} \
